@@ -388,6 +388,40 @@ body {
   display: none; max-height: 200px; overflow-y: auto;
 }
 
+/* ── 备份区块 ── */
+.backup-section {
+  margin-top: 16px;
+  background: var(--card);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.backup-section-title {
+  padding: 12px 16px 8px;
+  font-size: 11px; font-weight: 600;
+  color: var(--sub); letter-spacing: 1px;
+  border-bottom: 1px solid var(--line);
+}
+.backup-btn {
+  display: flex; align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  font-size: 15px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--line);
+}
+.backup-btn:last-child { border-bottom: none; }
+.backup-btn:active { background: #F5F5F5; }
+.backup-btn-icon {
+  width: 34px; height: 34px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; flex-shrink: 0;
+}
+.backup-btn-icon.green { background: #EDFAF2; color: #4FA86A; }
+.backup-btn-icon.blue  { background: #E8F2FF; color: #3A7CC8; }
+.backup-btn-desc { font-size: 12px; color: var(--sub); font-weight: 400; margin-top: 1px; }
+
 /* ── 页面切换 ── */
 .page { display: none; }
 .page.active { display: block; }
@@ -514,6 +548,31 @@ body {
       <div class="export-option-arrow">›</div>
     </div>
     <div class="export-preview" id="export-preview"></div>
+
+    <!-- 备份区块 -->
+    <div class="backup-section">
+      <div class="backup-section-title">数据备份</div>
+
+      <div class="backup-btn" id="backup-share-btn">
+        <div class="backup-btn-icon green">↑</div>
+        <div>
+          <div>分享到备忘录 / 微信</div>
+          <div class="backup-btn-desc">弹出系统分享菜单，可选备忘录、微信、文件等</div>
+        </div>
+      </div>
+
+      <div class="backup-btn" id="backup-copy-btn">
+        <div class="backup-btn-icon blue">⎘</div>
+        <div>
+          <div>复制全部数据</div>
+          <div class="backup-btn-desc">复制到剪贴板，手动粘贴到任意地方</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;font-size:12px;color:var(--sub);line-height:1.7;padding:0 4px">
+      建议每周备份一次，防止手机清理缓存导致数据丢失。
+    </div>
   </div>
 </div>
 
@@ -916,6 +975,70 @@ function doExport(range) {
 
   showToast('已复制，粘贴给任意 AI 即可');
 }
+
+// ── 生成备份文本 ──
+function buildBackupText() {
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(k.startsWith('review_')) keys.push(k);
+  }
+  keys.sort((a, b) => b.localeCompare(a));
+  if(keys.length === 0) return null;
+
+  const moodMap = {'1':'低谷','2':'普通','3':'不错','4':'很好','5':'高效'};
+  let text = `复盘数据备份 · ${formatDate(todayKey)}\n共 ${keys.length} 天记录\n${'─'.repeat(30)}\n\n`;
+  keys.forEach(k => {
+    const d = JSON.parse(localStorage.getItem(k));
+    text += `【${formatDate(d.date)}】状态：${d.moodLabel || moodMap[d.mood] || '不错'}\n`;
+    (d.events || []).forEach((ev, i) => {
+      text += `${i+1}. ${ev.text}`;
+      if(ev.tag) text += ` [${ev.tag}]`;
+      text += '\n';
+      if(ev.review) text += `   复盘：${ev.review}\n`;
+      if(ev.todos && ev.todos.length) {
+        ev.todos.forEach(t => {
+          text += `   · [${t.done ? '完成' : '未完成'}] ${t.text}\n`;
+        });
+      }
+    });
+    if(d.overallReview) text += `整体复盘：${d.overallReview}\n`;
+    text += '\n';
+  });
+  return text;
+}
+
+// ── 方案一：系统分享菜单 ──
+document.getElementById('backup-share-btn').addEventListener('click', function() {
+  const text = buildBackupText();
+  if(!text) { showToast('暂无数据可备份'); return; }
+
+  if(navigator.share) {
+    navigator.share({
+      title: `复盘备份 ${formatDate(todayKey)}`,
+      text: text
+    }).then(() => {
+      showToast('分享成功');
+    }).catch(err => {
+      if(err.name !== 'AbortError') {
+        copyText(text);
+        showToast('分享菜单不可用，已自动复制');
+      }
+    });
+  } else {
+    // 不支持时自动降级为复制
+    copyText(text);
+    showToast('当前环境不支持分享，已自动复制');
+  }
+});
+
+// ── 方案二：复制到剪贴板 ──
+document.getElementById('backup-copy-btn').addEventListener('click', function() {
+  const text = buildBackupText();
+  if(!text) { showToast('暂无数据可备份'); return; }
+  copyText(text);
+  showToast('已复制全部数据，粘贴到备忘录即可');
+});
 
 // ── 历史页导出按钮 ──
 document.getElementById('hist-export-btn').addEventListener('click', function() {
