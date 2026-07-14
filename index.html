@@ -114,17 +114,27 @@ body {
 .event-input::placeholder { color: var(--sub); font-weight: 400; }
 
 /* 标签 */
-.tag-row { display: flex; gap: 6px; margin: 8px 0 0 28px; }
+.tag-row { display: flex; gap: 8px; margin: 8px 0 0 28px; align-items: center; }
 .tag {
-  font-size: 11px; padding: 2px 8px;
-  border-radius: 4px; background: var(--tag-bg);
-  color: var(--sub); cursor: pointer;
-  transition: all 0.15s; border: 1px solid transparent;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #E0E0E0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  position: relative;
 }
-.tag.active-work { background: #E8F2FF; color: #3A7CC8; border-color: #A8CCEE; }
-.tag.active-life { background: #FFF0E8; color: #D4724A; border-color: #F0C4B0; }
-.tag.active-learn { background: #EDFAF2; color: #3A9A58; border-color: #A8D8B8; }
-.tag.active-other { background: #F5F5F5; color: #888888; border-color: #DDDDDD; }
+.tag:hover { transform: scale(1.3); }
+.tag[data-type="good"]    { background: #E8C8CC; }
+.tag[data-type="neutral"] { background: #C8DCC8; }
+.tag[data-type="bad"]     { background: #D0D0D0; }
+.tag.active-good    { background: #D4909A; border-color: #C07880; box-shadow: 0 0 0 3px rgba(212,144,154,0.25); }
+.tag.active-neutral { background: #8BBF8B; border-color: #6EA86E; box-shadow: 0 0 0 3px rgba(139,191,139,0.25); }
+.tag.active-bad     { background: #ABABAB; border-color: #909090; box-shadow: 0 0 0 3px rgba(171,171,171,0.25); }
+
+/* 待办待确认状态 */
+.todo-check.pending { opacity: 0.5; transform: scale(0.9); transition: all 0.15s; }
 
 /* 复盘区 */
 .review-area { margin: 10px 0 0 28px; }
@@ -173,6 +183,12 @@ body {
   background: var(--tag-bg); border-radius: 4px;
   padding: 1px 6px; flex-shrink: 0;
 }
+.todo-delete {
+  font-size: 16px; color: #CCCCCC; cursor: pointer;
+  flex-shrink: 0; padding: 0 2px; line-height: 1;
+  transition: color 0.15s;
+}
+.todo-delete:hover { color: #E05252; }
 
 /* 事项内部添加按钮 */
 .add-todo-btn {
@@ -482,9 +498,11 @@ body {
     <!-- 今日整体复盘 -->
     <div class="overall-section">
       <div class="overall-header">今日整体复盘</div>
-      <textarea class="overall-input" id="overall-review"
-        placeholder="不限于具体事项，记录今天的整体感受、想法或感悟…"
-        oninput="autoResize(this)"></textarea>
+      <div id="overall-list"></div>
+      <div class="add-event-btn" id="add-overall-btn" style="margin-top:8px">
+        <span style="font-size:18px;line-height:1">+</span>
+        <span>添加复盘条目</span>
+      </div>
     </div>
 
     <!-- 未完成跟进 -->
@@ -636,6 +654,26 @@ document.querySelectorAll('.mood-opt').forEach(opt => {
 });
 
 // ── 事项计数 ──
+// ── 整体复盘条目 ──
+function createOverallItem(text) {
+  const item = document.createElement('div');
+  item.className = 'overall-item';
+  item.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;';
+  item.innerHTML = `
+    <textarea class="overall-item-input review-input" placeholder="记录今天的整体感受、想法或感悟…" rows="1"
+      oninput="autoResize(this)" style="flex:1;"></textarea>
+    <div onclick="this.closest('.overall-item').remove()" style="font-size:18px;color:#bbb;cursor:pointer;line-height:1.4;padding:0 2px;flex-shrink:0;">×</div>`;
+  const ta = item.querySelector('textarea');
+  if(text) { ta.value = text; }
+  document.getElementById('overall-list').appendChild(item);
+  setTimeout(() => autoResize(ta), 0);
+  if(!text) ta.focus();
+}
+
+function addOverallItem(text) {
+  createOverallItem(text || '');
+}
+
 let eventCount = 0;
 
 // ── 创建一个事项块 ──
@@ -656,10 +694,9 @@ function createEventBlock(data) {
       <div class="event-delete" onclick="deleteEvent(this)">×</div>
     </div>
     <div class="tag-row">
-      <div class="tag" onclick="setTag(this,'work')">工作</div>
-      <div class="tag" onclick="setTag(this,'life')">生活</div>
-      <div class="tag" onclick="setTag(this,'learn')">学习</div>
-      <div class="tag" onclick="setTag(this,'other')">其他</div>
+      <div class="tag" data-type="bad"     onclick="setTag(this,'bad')"     title="不好"></div>
+      <div class="tag" data-type="neutral" onclick="setTag(this,'neutral')" title="中性"></div>
+      <div class="tag" data-type="good"    onclick="setTag(this,'good')"    title="好的"></div>
     </div>
     <div class="review-area">
       <div class="review-label">复盘这件事</div>
@@ -678,8 +715,10 @@ function createEventBlock(data) {
     ri.value = data.review || '';
     autoResize(ri);
     if(data.tag) {
-      const tagEl = block.querySelector(`.tag[onclick*="${data.tag}"]`);
-      if(tagEl) setTag(tagEl, data.tag);
+      const tagMap = { work:'neutral', life:'neutral', learn:'good', other:'neutral' };
+      const tag = ['good','neutral','bad'].includes(data.tag) ? data.tag : (tagMap[data.tag] || 'neutral');
+      const tagEl = block.querySelector(`.tag[data-type="${tag}"]`);
+      if(tagEl) setTag(tagEl, tag);
     }
     if(data.todos) {
       data.todos.forEach(t => addTodo(id, t));
@@ -696,7 +735,9 @@ function createEventBlock(data) {
 // ── 设置标签 ──
 function setTag(el, type) {
   const row = el.closest('.tag-row');
-  row.querySelectorAll('.tag').forEach(t => t.className = 'tag');
+  row.querySelectorAll('.tag').forEach(t => {
+    t.className = 'tag';
+  });
   el.classList.add('active-' + type);
   el.closest('.event-block').dataset.tag = type;
 }
@@ -713,15 +754,57 @@ function addTodo(blockId, data) {
       onclick="toggleTodo(this)"></div>
     <input class="todo-text${data && data.done ? ' striked' : ''}"
       placeholder="待办事项…" value="${data ? escHtml(data.text||'') : ''}">
-    ${isPrev ? `<span class="todo-from-prev">${data.fromDate||'昨天'}</span>` : ''}`;
+    ${isPrev ? `<span class="todo-from-prev">${data.fromDate||'昨天'}</span>` : ''}
+    <div class="todo-delete" onclick="this.closest('.todo-row').remove()">×</div>`;
   area.appendChild(row);
   if(!data) row.querySelector('input').focus();
 }
 
+// ── 待办双击确认 ──
+const _todoPending = new WeakMap();
+
 function toggleTodo(el) {
-  el.classList.toggle('done');
-  const input = el.nextElementSibling;
-  input.classList.toggle('striked', el.classList.contains('done'));
+  if(el.classList.contains('done')) {
+    // 已完成再点 → 直接撤销
+    el.classList.remove('done');
+    el.nextElementSibling.classList.remove('striked');
+    return;
+  }
+  if(_todoPending.has(el)) {
+    clearTimeout(_todoPending.get(el));
+    _todoPending.delete(el);
+    el.classList.remove('pending');
+    el.classList.add('done');
+    el.nextElementSibling.classList.add('striked');
+    showUndoToast(el);
+  } else {
+    el.classList.add('pending');
+    showToast('再次点击确认完成');
+    const timer = setTimeout(() => {
+      el.classList.remove('pending');
+      _todoPending.delete(el);
+    }, 2500);
+    _todoPending.set(el, timer);
+  }
+}
+
+function showUndoToast(checkEl) {
+  const existing = document.getElementById('undo-toast');
+  if(existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'undo-toast';
+  toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#333;color:#fff;border-radius:20px;padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);';
+  toast.innerHTML = '<span>已完成</span><button id="undo-btn" style="background:#fff;color:#333;border:none;border-radius:10px;padding:3px 10px;font-size:12px;cursor:pointer;">撤销</button>';
+  document.body.appendChild(toast);
+  const undoTimer = setTimeout(() => toast.remove(), 3000);
+  document.getElementById('undo-btn').addEventListener('click', () => {
+    clearTimeout(undoTimer);
+    toast.remove();
+    if(checkEl) {
+      checkEl.classList.remove('done');
+      checkEl.nextElementSibling.classList.remove('striked');
+    }
+  });
 }
 
 // ── 删除事项 ──
@@ -742,6 +825,11 @@ document.getElementById('add-event-btn').addEventListener('click', function() {
   list.appendChild(block);
   block.querySelector('.event-input').focus();
   block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ── 添加整体复盘条目按钮 ──
+document.getElementById('add-overall-btn').addEventListener('click', function() {
+  addOverallItem('');
 });
 
 // ── 未完成跟进（从昨天滚入） ──
@@ -808,8 +896,12 @@ function collectToday() {
     events.push({ text, review, tag, todos });
   });
 
-  const overallReview = document.getElementById('overall-review').value.trim();
-  return { date: todayKey, mood, moodLabel, events, overallReview };
+  const overallItems = [];
+  document.querySelectorAll('.overall-item-input').forEach(inp => {
+    const t = inp.value.trim();
+    if(t) overallItems.push(t);
+  });
+  return { date: todayKey, mood, moodLabel, events, overallItems };
 }
 
 function saveToday() {
@@ -839,11 +931,10 @@ function loadTodayData() {
   (data.events || []).forEach(ev => {
     list.appendChild(createEventBlock(ev));
   });
-  if(data.overallReview) {
-    const el = document.getElementById('overall-review');
-    el.value = data.overallReview;
-    autoResize(el);
-  }
+  const overallList = document.getElementById('overall-list');
+  overallList.innerHTML = '';
+  const items = data.overallItems || (data.overallReview ? [data.overallReview] : []);
+  items.forEach(text => addOverallItem(text));
 }
 
 // ── 历史渲染 ──
@@ -889,10 +980,12 @@ function renderHistory() {
       item.innerHTML = html;
       body.appendChild(item);
     });
-    if(d.overallReview) {
+    const overallArr = d.overallItems || (d.overallReview ? [d.overallReview] : []);
+    if(overallArr.length) {
       const overall = document.createElement('div');
       overall.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
-      overall.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">整体复盘</div>${escHtml(d.overallReview)}`;
+      overall.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">整体复盘</div>` +
+        overallArr.map((t,i) => `<div style="margin-bottom:3px">${overallArr.length>1?`${i+1}. `:''}${escHtml(t)}</div>`).join('');
       body.appendChild(overall);
     }
 
@@ -958,7 +1051,8 @@ function doExport(range) {
         });
       }
     });
-    if(d.overallReview) text += `整体复盘：${d.overallReview}\n`;
+    const expOverall = d.overallItems || (d.overallReview ? [d.overallReview] : []);
+    expOverall.forEach((t,i) => { text += `整体复盘${expOverall.length>1?' '+(i+1):''}：${t}\n`; });
     text += '\n';
   });
 
@@ -1005,7 +1099,8 @@ function buildBackupText() {
         });
       }
     });
-    if(d.overallReview) text += `整体复盘：${d.overallReview}\n`;
+    const expOverall = d.overallItems || (d.overallReview ? [d.overallReview] : []);
+    expOverall.forEach((t,i) => { text += `整体复盘${expOverall.length>1?' '+(i+1):''}：${t}\n`; });
     text += '\n';
   });
   return text;
@@ -1147,9 +1242,27 @@ function renderTodoPage() {
 }
 
 function toggleTodoPage(el) {
-  el.classList.toggle('done');
-  const text = el.nextElementSibling;
-  text.classList.toggle('striked', el.classList.contains('done'));
+  if(el.classList.contains('done')) {
+    el.classList.remove('done');
+    el.nextElementSibling.classList.remove('striked');
+    return;
+  }
+  if(_todoPending.has(el)) {
+    clearTimeout(_todoPending.get(el));
+    _todoPending.delete(el);
+    el.classList.remove('pending');
+    el.classList.add('done');
+    el.nextElementSibling.classList.add('striked');
+    showUndoToast(el);
+  } else {
+    el.classList.add('pending');
+    showToast('再次点击确认完成');
+    const timer = setTimeout(() => {
+      el.classList.remove('pending');
+      _todoPending.delete(el);
+    }, 2500);
+    _todoPending.set(el, timer);
+  }
 }
 
 function formatDateShort(dateStr) {
