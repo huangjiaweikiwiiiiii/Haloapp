@@ -597,54 +597,69 @@ body {
     </div>
 
     <!-- GitHub Gist 同步 -->
-    <div class="backup-section" style="margin-top:16px">
-      <div class="backup-section-title">☁️ 云端同步（GitHub Gist）</div>
+    <div style="margin-top:24px;padding-bottom:40px">
+      <div style="font-size:12px;color:var(--sub);letter-spacing:0.5px;margin-bottom:12px;padding:0 2px">
+        ☁️ 云端同步（GitHub Gist）
+      </div>
 
-      <div id="sync-unconfigured">
-        <div style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:12px">
+      <!-- 未配置状态 -->
+      <div id="sync-unconfigured" style="background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--line)">
+        <div style="font-size:13px;color:var(--sub);line-height:1.8;margin-bottom:20px">
           配置后可在手机与电脑间实时同步数据。<br>
           需要 GitHub Personal Access Token（gist 权限）。
         </div>
-        <div style="margin-bottom:8px">
-          <div style="font-size:12px;color:var(--sub);margin-bottom:4px">GitHub Token</div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:8px">GitHub Token</div>
           <input id="gist-token-input" type="password" placeholder="ghp_xxxxxxxxxxxx"
-            style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;background:var(--card);">
+            style="width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14px;outline:none;background:#FAFAFA;color:var(--text);">
         </div>
-        <div class="backup-btn" id="sync-save-config-btn" style="margin-top:4px">
-          <div class="backup-btn-icon green">✓</div>
-          <div>
-            <div>保存配置并初始化</div>
-            <div class="backup-btn-desc">首次会创建一个私有 Gist 存储数据</div>
-          </div>
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:4px">Gist ID <span style="color:#BBBBBB;font-size:11px">（已在其他设备初始化过则填写，否则留空）</span></div>
+          <input id="gist-id-input" type="text" placeholder="留空则自动创建新 Gist"
+            style="width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;outline:none;background:#FAFAFA;color:var(--text);">
+        </div>
+        <button id="sync-save-config-btn"
+          style="width:100%;padding:14px;background:#8BBF8B;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;letter-spacing:0.5px;">
+          保存并初始化同步
+        </button>
+        <div style="font-size:11px;color:#BBBBBB;margin-top:10px;text-align:center;line-height:1.6">
+          首次会自动创建一个私有 Gist 存储数据
         </div>
       </div>
 
-      <div id="sync-configured" style="display:none">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <div style="width:8px;height:8px;border-radius:50%;background:#8BBF8B" id="sync-status-dot"></div>
-          <div style="font-size:13px;color:var(--sub)" id="sync-status-text">未同步</div>
+      <!-- 已配置状态 -->
+      <div id="sync-configured" style="display:none;background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+          <div style="width:8px;height:8px;border-radius:50%;background:#8BBF8B;flex-shrink:0" id="sync-status-dot"></div>
+          <div style="font-size:13px;color:var(--sub);flex:1" id="sync-status-text">未同步</div>
         </div>
-        <div class="backup-btn" id="sync-push-btn">
-          <div class="backup-btn-icon green">↑</div>
-          <div>
-            <div>上传到云端</div>
-            <div class="backup-btn-desc">将本机数据推送到 GitHub Gist</div>
+
+        <!-- Gist ID 显示，方便复制给其他设备 -->
+        <div style="margin-bottom:16px;padding:10px 12px;background:#F8F8F8;border-radius:8px;border:1px solid var(--line)">
+          <div style="font-size:11px;color:#BBBBBB;margin-bottom:4px">Gist ID（在其他设备配置时填入）</div>
+          <div style="font-size:12px;color:var(--sub);word-break:break-all;cursor:pointer" id="gist-id-display"
+            onclick="copyText(this.textContent);showToast('已复制 Gist ID')">
+            加载中…
           </div>
         </div>
-        <div class="backup-btn" id="sync-pull-btn" style="margin-top:8px">
-          <div class="backup-btn-icon blue">↓</div>
-          <div>
-            <div>从云端拉取</div>
-            <div class="backup-btn-desc">用云端数据覆盖本机（会合并，不丢失）</div>
-          </div>
+
+        <button id="sync-push-btn"
+          style="width:100%;padding:14px;background:#8BBF8B;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;">
+          ↑ 上传到云端
+        </button>
+        <button id="sync-pull-btn"
+          style="width:100%;padding:14px;background:#B8D4EF;color:#4A7FA8;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:20px;">
+          ↓ 从云端拉取
+        </button>
+
+        <div style="font-size:11px;color:#BBBBBB;line-height:1.7;margin-bottom:16px;text-align:center">
+          打开 app 时会自动拉取最新数据
         </div>
-        <div class="backup-btn" id="sync-reset-btn" style="margin-top:8px">
-          <div class="backup-btn-icon" style="background:#f5f5f5;color:#aaa">×</div>
-          <div>
-            <div>清除同步配置</div>
-            <div class="backup-btn-desc">断开与 Gist 的连接，不删除云端数据</div>
-          </div>
-        </div>
+
+        <button id="sync-reset-btn"
+          style="width:100%;padding:11px;background:transparent;color:#BBBBBB;border:1px solid var(--line);border-radius:10px;font-size:13px;cursor:pointer;">
+          断开同步配置
+        </button>
       </div>
     </div>
 
@@ -1493,13 +1508,15 @@ function gistSetStatus(text, color) {
 }
 
 function gistInitUI() {
-  const { token } = gistGetConfig();
+  const { token, gistId } = gistGetConfig();
   const uncfg = document.getElementById('sync-unconfigured');
   const cfgd  = document.getElementById('sync-configured');
   if(!uncfg || !cfgd) return;
   if(token) {
     uncfg.style.display = 'none';
     cfgd.style.display  = 'block';
+    const display = document.getElementById('gist-id-display');
+    if(display) display.textContent = gistId || '未知';
     gistSetStatus('已配置，点击同步', '#8BBF8B');
   } else {
     uncfg.style.display = 'block';
@@ -1582,17 +1599,34 @@ async function gistFetch(token, gistId) {
 // 保存配置并初始化
 document.getElementById('sync-save-config-btn')?.addEventListener('click', async function() {
   const token = document.getElementById('gist-token-input').value.trim();
+  const inputGistId = document.getElementById('gist-id-input')?.value.trim();
   if(!token) { showToast('请输入 Token'); return; }
   gistSetStatus('初始化中…', '#F0B85A');
   showToast('正在初始化…');
   try {
-    const data = gistCollectAll();
-    const gistId = await gistCreate(token, data);
+    let gistId = inputGistId;
+    if(gistId) {
+      // 用已有 Gist ID，验证一下能否访问
+      await gistFetch(token, gistId);
+    } else {
+      // 创建新 Gist
+      const data = gistCollectAll();
+      gistId = await gistCreate(token, data);
+    }
     localStorage.setItem(GIST_TOKEN_KEY, token);
     localStorage.setItem(GIST_ID_KEY, gistId);
     gistInitUI();
-    gistSetStatus('已同步 ' + new Date().toLocaleTimeString(), '#8BBF8B');
-    showToast('✓ 同步配置成功！');
+    // 连接已有 Gist 时自动拉取数据
+    if(inputGistId) {
+      const cloudData = await gistFetch(token, gistId);
+      const changed = gistMergeData(cloudData);
+      if(changed) { loadTodayData(); renderHistory(); renderTodoPage(); }
+      gistSetStatus('已连接并同步 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+      showToast('✓ 已连接并拉取数据！');
+    } else {
+      gistSetStatus('已同步 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+      showToast('✓ 同步配置成功！');
+    }
   } catch(e) {
     gistSetStatus('初始化失败', '#D4909A');
     showToast('失败：' + e.message);
