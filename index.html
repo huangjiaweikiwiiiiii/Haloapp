@@ -464,9 +464,10 @@ body {
 <div class="page active" id="page-today">
 
   <div class="topbar">
-    <div>
+    <div style="position:relative;cursor:pointer" id="date-tap-area" title="点击修改日期">
       <div class="topbar-date" id="today-date">7月13日</div>
-      <div class="topbar-sub" id="today-weekday">星期一</div>
+      <div class="topbar-sub" id="today-weekday">星期一 <span style="font-size:10px;opacity:0.5">✎</span></div>
+      <input type="date" id="date-picker" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" />
     </div>
     <div class="topbar-right">
       <div class="topbar-btn" id="save-btn">保存</div>
@@ -594,6 +595,59 @@ body {
     <div style="margin-top:10px;font-size:12px;color:var(--sub);line-height:1.7;padding:0 4px">
       建议每周备份一次，防止手机清理缓存导致数据丢失。
     </div>
+
+    <!-- GitHub Gist 同步 -->
+    <div class="backup-section" style="margin-top:16px">
+      <div class="backup-section-title">☁️ 云端同步（GitHub Gist）</div>
+
+      <div id="sync-unconfigured">
+        <div style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:12px">
+          配置后可在手机与电脑间实时同步数据。<br>
+          需要 GitHub Personal Access Token（gist 权限）。
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:4px">GitHub Token</div>
+          <input id="gist-token-input" type="password" placeholder="ghp_xxxxxxxxxxxx"
+            style="width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;background:var(--card);">
+        </div>
+        <div class="backup-btn" id="sync-save-config-btn" style="margin-top:4px">
+          <div class="backup-btn-icon green">✓</div>
+          <div>
+            <div>保存配置并初始化</div>
+            <div class="backup-btn-desc">首次会创建一个私有 Gist 存储数据</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="sync-configured" style="display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#8BBF8B" id="sync-status-dot"></div>
+          <div style="font-size:13px;color:var(--sub)" id="sync-status-text">未同步</div>
+        </div>
+        <div class="backup-btn" id="sync-push-btn">
+          <div class="backup-btn-icon green">↑</div>
+          <div>
+            <div>上传到云端</div>
+            <div class="backup-btn-desc">将本机数据推送到 GitHub Gist</div>
+          </div>
+        </div>
+        <div class="backup-btn" id="sync-pull-btn" style="margin-top:8px">
+          <div class="backup-btn-icon blue">↓</div>
+          <div>
+            <div>从云端拉取</div>
+            <div class="backup-btn-desc">用云端数据覆盖本机（会合并，不丢失）</div>
+          </div>
+        </div>
+        <div class="backup-btn" id="sync-reset-btn" style="margin-top:8px">
+          <div class="backup-btn-icon" style="background:#f5f5f5;color:#aaa">×</div>
+          <div>
+            <div>清除同步配置</div>
+            <div class="backup-btn-desc">断开与 Gist 的连接，不删除云端数据</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -641,9 +695,42 @@ body {
 // ── 初始化日期 ──
 const now = new Date();
 const weekdays = ['日','一','二','三','四','五','六'];
-document.getElementById('today-date').textContent = `${now.getMonth()+1}月${now.getDate()}日`;
-document.getElementById('today-weekday').textContent = `星期${weekdays[now.getDay()]}`;
 const todayKey = now.toISOString().split('T')[0];
+let activeKey = todayKey; // 当前编辑的日期，可被用户修改
+
+function setActiveDate(dateStr) {
+  activeKey = dateStr;
+  const d = new Date(dateStr + 'T00:00:00');
+  document.getElementById('today-date').textContent = `${d.getMonth()+1}月${d.getDate()}日`;
+  document.getElementById('today-weekday').innerHTML = `星期${weekdays[d.getDay()]} <span style="font-size:10px;opacity:0.5">✎</span>`;
+  document.getElementById('date-picker').value = dateStr;
+}
+
+setActiveDate(todayKey);
+
+// 日期选择器
+document.getElementById('date-picker').addEventListener('change', function() {
+  const newDate = this.value;
+  if(!newDate) return;
+  // 先保存当前页面内容到旧日期
+  const currentData = collectToday();
+  const hasContent = currentData.events.length > 0 || currentData.overallItems.length > 0;
+  if(hasContent) {
+    localStorage.setItem('review_' + activeKey, JSON.stringify({...currentData, date: activeKey}));
+  }
+  // 切换到新日期
+  setActiveDate(newDate);
+  // 重置页面
+  document.getElementById('event-list').innerHTML = '';
+  eventCount = 0;
+  document.getElementById('overall-list').innerHTML = '';
+  document.querySelectorAll('.mood-opt').forEach(o => o.classList.remove('active'));
+  document.querySelector('.mood-opt[data-mood="3"]').classList.add('active');
+  // 加载新日期数据
+  loadTodayData();
+  renderHistory();
+  showToast(`已切换到 ${document.getElementById('today-date').textContent}`);
+});
 
 // ── 状态选择 ──
 document.querySelectorAll('.mood-opt').forEach(opt => {
@@ -901,12 +988,12 @@ function collectToday() {
     const t = inp.value.trim();
     if(t) overallItems.push(t);
   });
-  return { date: todayKey, mood, moodLabel, events, overallItems };
+  return { date: activeKey, mood, moodLabel, events, overallItems };
 }
 
 function saveToday() {
   const data = collectToday();
-  localStorage.setItem('review_' + todayKey, JSON.stringify(data));
+  localStorage.setItem('review_' + activeKey, JSON.stringify(data));
   renderHistory();
 }
 
@@ -918,7 +1005,7 @@ function loadDay(key) {
 
 // ── 加载今天已有数据 ──
 function loadTodayData() {
-  const data = loadDay(todayKey);
+  const data = loadDay(activeKey);
   if(!data) return;
   const list = document.getElementById('event-list');
   list.innerHTML = '';
@@ -1009,7 +1096,7 @@ function doExport(range) {
 
   let selected = [];
   if(range === 'today') {
-    selected = keys.filter(k => k === 'review_' + todayKey);
+    selected = keys.filter(k => k === 'review_' + activeKey);
   } else if(range === 'week') {
     const d7 = new Date(now); d7.setDate(d7.getDate() - 7);
     selected = keys.filter(k => k.replace('review_','') >= d7.toISOString().split('T')[0]);
@@ -1384,6 +1471,205 @@ if(document.querySelectorAll('.event-block').length === 0) {
   const list = document.getElementById('event-list');
   list.appendChild(createEventBlock(null));
 }
+
+// ══════════════ GitHub Gist 同步 ══════════════
+
+const GIST_TOKEN_KEY = 'gist_token';
+const GIST_ID_KEY    = 'gist_id';
+const GIST_FILENAME  = 'daily-log-data.json';
+
+function gistGetConfig() {
+  return {
+    token: localStorage.getItem(GIST_TOKEN_KEY),
+    gistId: localStorage.getItem(GIST_ID_KEY)
+  };
+}
+
+function gistSetStatus(text, color) {
+  const dot  = document.getElementById('sync-status-dot');
+  const label = document.getElementById('sync-status-text');
+  if(dot)   dot.style.background = color || '#ABABAB';
+  if(label) label.textContent = text;
+}
+
+function gistInitUI() {
+  const { token } = gistGetConfig();
+  const uncfg = document.getElementById('sync-unconfigured');
+  const cfgd  = document.getElementById('sync-configured');
+  if(!uncfg || !cfgd) return;
+  if(token) {
+    uncfg.style.display = 'none';
+    cfgd.style.display  = 'block';
+    gistSetStatus('已配置，点击同步', '#8BBF8B');
+  } else {
+    uncfg.style.display = 'block';
+    cfgd.style.display  = 'none';
+  }
+}
+
+// 收集所有本地数据
+function gistCollectAll() {
+  const result = {};
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(k.startsWith('review_')) {
+      result[k] = JSON.parse(localStorage.getItem(k));
+    }
+  }
+  return result;
+}
+
+// 合并云端数据到本地（云端优先，但保留本地独有的 key）
+function gistMergeData(cloudData) {
+  let changed = false;
+  Object.keys(cloudData).forEach(k => {
+    const local = localStorage.getItem(k);
+    const cloudStr = JSON.stringify(cloudData[k]);
+    if(local !== cloudStr) {
+      localStorage.setItem(k, cloudStr);
+      changed = true;
+    }
+  });
+  return changed;
+}
+
+// 创建新 Gist
+async function gistCreate(token, data) {
+  const res = await fetch('https://api.github.com/gists', {
+    method: 'POST',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      description: 'Daily Log 复盘数据同步',
+      public: false,
+      files: { [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) } }
+    })
+  });
+  if(!res.ok) throw new Error('创建 Gist 失败：' + res.status);
+  const json = await res.json();
+  return json.id;
+}
+
+// 更新已有 Gist
+async function gistUpdate(token, gistId, data) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      files: { [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) } }
+    })
+  });
+  if(!res.ok) throw new Error('更新 Gist 失败：' + res.status);
+}
+
+// 读取 Gist
+async function gistFetch(token, gistId) {
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: { 'Authorization': `token ${token}` }
+  });
+  if(!res.ok) throw new Error('读取 Gist 失败：' + res.status);
+  const json = await res.json();
+  const raw = json.files?.[GIST_FILENAME]?.content;
+  if(!raw) throw new Error('Gist 文件不存在');
+  return JSON.parse(raw);
+}
+
+// 保存配置并初始化
+document.getElementById('sync-save-config-btn')?.addEventListener('click', async function() {
+  const token = document.getElementById('gist-token-input').value.trim();
+  if(!token) { showToast('请输入 Token'); return; }
+  gistSetStatus('初始化中…', '#F0B85A');
+  showToast('正在初始化…');
+  try {
+    const data = gistCollectAll();
+    const gistId = await gistCreate(token, data);
+    localStorage.setItem(GIST_TOKEN_KEY, token);
+    localStorage.setItem(GIST_ID_KEY, gistId);
+    gistInitUI();
+    gistSetStatus('已同步 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+    showToast('✓ 同步配置成功！');
+  } catch(e) {
+    gistSetStatus('初始化失败', '#D4909A');
+    showToast('失败：' + e.message);
+  }
+});
+
+// 上传到云端
+document.getElementById('sync-push-btn')?.addEventListener('click', async function() {
+  const { token, gistId } = gistGetConfig();
+  if(!token || !gistId) { showToast('请先配置同步'); return; }
+  // 先保存当前页面
+  saveToday();
+  gistSetStatus('上传中…', '#F0B85A');
+  try {
+    const data = gistCollectAll();
+    await gistUpdate(token, gistId, data);
+    gistSetStatus('已上传 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+    showToast('✓ 已上传到云端');
+  } catch(e) {
+    gistSetStatus('上传失败', '#D4909A');
+    showToast('上传失败：' + e.message);
+  }
+});
+
+// 从云端拉取
+document.getElementById('sync-pull-btn')?.addEventListener('click', async function() {
+  const { token, gistId } = gistGetConfig();
+  if(!token || !gistId) { showToast('请先配置同步'); return; }
+  gistSetStatus('拉取中…', '#F0B85A');
+  try {
+    const cloudData = await gistFetch(token, gistId);
+    const changed = gistMergeData(cloudData);
+    gistSetStatus('已拉取 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+    if(changed) {
+      loadTodayData();
+      renderHistory();
+      renderTodoPage();
+      showToast('✓ 数据已更新');
+    } else {
+      showToast('✓ 数据已是最新');
+    }
+  } catch(e) {
+    gistSetStatus('拉取失败', '#D4909A');
+    showToast('拉取失败：' + e.message);
+  }
+});
+
+// 清除配置
+document.getElementById('sync-reset-btn')?.addEventListener('click', function() {
+  if(!confirm('确认断开同步？本机数据不受影响，云端 Gist 也不会删除。')) return;
+  localStorage.removeItem(GIST_TOKEN_KEY);
+  localStorage.removeItem(GIST_ID_KEY);
+  gistInitUI();
+  showToast('已断开同步配置');
+});
+
+// 自动拉取：打开 app 时如果已配置则静默拉取
+(async function gistAutoSync() {
+  const { token, gistId } = gistGetConfig();
+  if(!token || !gistId) return;
+  try {
+    const cloudData = await gistFetch(token, gistId);
+    const changed = gistMergeData(cloudData);
+    if(changed) {
+      loadTodayData();
+      renderHistory();
+      renderTodoPage();
+      gistSetStatus('自动同步 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+    } else {
+      gistSetStatus('已是最新 ' + new Date().toLocaleTimeString(), '#8BBF8B');
+    }
+  } catch(e) {
+    gistSetStatus('自动同步失败', '#D4909A');
+  }
+})();
+
+gistInitUI();
 </script>
 </body>
 </html>
