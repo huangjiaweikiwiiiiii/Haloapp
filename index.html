@@ -369,8 +369,8 @@ body {
 .hist-day-body { padding: 0 20px 14px; display: none; }
 .hist-day-body.open { display: block; }
 .hist-event-item { padding: 10px 0; border-top: 1px solid var(--line); }
-.hist-event-text { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-.hist-review-text { font-size: 13px; color: #666; line-height: 1.6; padding-left: 10px; border-left: 2px solid var(--line); margin-bottom: 6px; }
+.hist-event-text { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: pre-wrap; word-break: break-word; }
+.hist-review-text { font-size: 13px; color: #666; line-height: 1.6; padding-left: 10px; border-left: 2px solid var(--line); margin-bottom: 6px; white-space: pre-wrap; word-break: break-word; }
 .hist-todo-text { font-size: 12px; color: var(--sub); }
 .hist-todo-text.done { text-decoration: line-through; }
 
@@ -503,6 +503,17 @@ body {
       <div class="add-event-btn" id="add-overall-btn" style="margin-top:8px">
         <span style="font-size:18px;line-height:1">+</span>
         <span>添加复盘条目</span>
+      </div>
+    </div>
+
+    <!-- 读书心得 -->
+    <div class="overall-section" id="reading-section">
+      <div class="overall-header">读书心得</div>
+      <div style="font-size:12px;color:var(--sub);margin:0 0 10px 0;line-height:1.6">今天读到了什么？有什么想法或行动计划？</div>
+      <div id="reading-list"></div>
+      <div class="add-event-btn" id="add-reading-btn" style="margin-top:8px">
+        <span style="font-size:18px;line-height:1">+</span>
+        <span>添加心得</span>
       </div>
     </div>
 
@@ -934,7 +945,47 @@ document.getElementById('add-overall-btn').addEventListener('click', function() 
   addOverallItem('');
 });
 
-// ── 未完成跟进（从昨天滚入） ──
+// ── 读书心得 ──
+function createReadingItem(text) {
+  const item = document.createElement('div');
+  item.className = 'overall-item';
+  item.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;';
+  item.innerHTML = `
+    <textarea class="reading-item-input review-input" placeholder="记录今天读到的内容、触动你的句子、或马上想做的事…" rows="1"
+      oninput="autoResize(this)" style="flex:1;"></textarea>
+    <div onclick="this.closest('.overall-item').remove()" style="font-size:18px;color:#bbb;cursor:pointer;line-height:1.4;padding:0 2px;flex-shrink:0;">×</div>`;
+  const ta = item.querySelector('textarea');
+  if(text) { ta.value = text; }
+  document.getElementById('reading-list').appendChild(item);
+  setTimeout(() => autoResize(ta), 0);
+  if(!text) ta.focus();
+}
+
+document.getElementById('add-reading-btn').addEventListener('click', function() {
+  createReadingItem('');
+});
+
+// ── 自动保存 ──
+let _autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => {
+    saveToday();
+  }, 2000); // 停止输入 2 秒后保存
+}
+
+// 监听今日记录页所有输入变化
+document.getElementById('main-content').addEventListener('input', scheduleAutoSave);
+document.getElementById('overall-list').addEventListener('input', scheduleAutoSave);
+document.getElementById('reading-list').addEventListener('input', scheduleAutoSave);
+document.querySelectorAll('.mood-opt').forEach(opt => {
+  opt.addEventListener('click', scheduleAutoSave);
+});
+
+// 每 30 秒兜底保存一次
+setInterval(() => saveToday(), 30000);
+
+
 function loadCarryOver() {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -1003,7 +1054,14 @@ function collectToday() {
     const t = inp.value.trim();
     if(t) overallItems.push(t);
   });
-  return { date: activeKey, mood, moodLabel, events, overallItems };
+
+  const readingItems = [];
+  document.querySelectorAll('.reading-item-input').forEach(inp => {
+    const t = inp.value.trim();
+    if(t) readingItems.push(t);
+  });
+
+  return { date: activeKey, mood, moodLabel, events, overallItems, readingItems };
 }
 
 function saveToday() {
@@ -1037,6 +1095,10 @@ function loadTodayData() {
   overallList.innerHTML = '';
   const items = data.overallItems || (data.overallReview ? [data.overallReview] : []);
   items.forEach(text => addOverallItem(text));
+
+  const readingList = document.getElementById('reading-list');
+  readingList.innerHTML = '';
+  (data.readingItems || []).forEach(text => createReadingItem(text));
 }
 
 // ── 历史渲染 ──
@@ -1064,6 +1126,7 @@ function renderHistory() {
         <div class="hist-day-meta">
           <div class="hist-mood-dot hist-mood-${d.mood||3}"></div>
           ${moodLabel}
+          <div onclick="event.stopPropagation();editHistDay('${d.date}')" style="margin-left:10px;font-size:12px;color:var(--sub);padding:2px 8px;border:1px solid var(--line);border-radius:6px;cursor:pointer;">编辑</div>
         </div>
       </div>
       <div class="hist-day-body"></div>`;
@@ -1087,8 +1150,15 @@ function renderHistory() {
       const overall = document.createElement('div');
       overall.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
       overall.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">整体复盘</div>` +
-        overallArr.map((t,i) => `<div style="margin-bottom:3px">${overallArr.length>1?`${i+1}. `:''}${escHtml(t)}</div>`).join('');
+        overallArr.map((t,i) => `<div style="margin-bottom:3px">${overallArr.length>1?`${i+1}. `:''}​${escHtml(t)}</div>`).join('');
       body.appendChild(overall);
+    }
+    if(d.readingItems && d.readingItems.length) {
+      const reading = document.createElement('div');
+      reading.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
+      reading.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">读书心得</div>` +
+        d.readingItems.map((t,i) => `<div style="margin-bottom:3px">${d.readingItems.length>1?`${i+1}. `:''}​${escHtml(t)}</div>`).join('');
+      body.appendChild(reading);
     }
 
     list.appendChild(day);
@@ -1098,6 +1168,31 @@ function renderHistory() {
 function toggleHist(el) {
   const body = el.nextElementSibling;
   body.classList.toggle('open');
+}
+
+// ── 编辑历史某天 ──
+function editHistDay(dateStr) {
+  // 先保存当前页面
+  saveToday();
+  // 切换到目标日期
+  setActiveDate(dateStr);
+  // 重置页面
+  document.getElementById('event-list').innerHTML = '';
+  eventCount = 0;
+  document.getElementById('overall-list').innerHTML = '';
+  document.getElementById('reading-list').innerHTML = '';
+  document.querySelectorAll('.mood-opt').forEach(o => o.classList.remove('active'));
+  document.querySelector('.mood-opt[data-mood="3"]').classList.add('active');
+  // 加载那天数据
+  loadTodayData();
+  // 如果没有数据则添加一条空事项
+  if(document.querySelectorAll('.event-block').length === 0) {
+    document.getElementById('event-list').appendChild(createEventBlock(null));
+  }
+  // 跳转到今日记录页
+  const navToday = document.querySelector('.nav-item[onclick*="today"]');
+  switchPage('today', navToday);
+  showToast(`正在编辑 ${document.getElementById('today-date').textContent}`);
 }
 
 // ── 导出给 AI ──
@@ -1155,6 +1250,9 @@ function doExport(range) {
     });
     const expOverall = d.overallItems || (d.overallReview ? [d.overallReview] : []);
     expOverall.forEach((t,i) => { text += `整体复盘${expOverall.length>1?' '+(i+1):''}：${t}\n`; });
+    if(d.readingItems && d.readingItems.length) {
+      d.readingItems.forEach((t,i) => { text += `读书心得${d.readingItems.length>1?' '+(i+1):''}：${t}\n`; });
+    }
     text += '\n';
   });
 
@@ -1203,6 +1301,9 @@ function buildBackupText() {
     });
     const expOverall = d.overallItems || (d.overallReview ? [d.overallReview] : []);
     expOverall.forEach((t,i) => { text += `整体复盘${expOverall.length>1?' '+(i+1):''}：${t}\n`; });
+    if(d.readingItems && d.readingItems.length) {
+      d.readingItems.forEach((t,i) => { text += `读书心得${d.readingItems.length>1?' '+(i+1):''}：${t}\n`; });
+    }
     text += '\n';
   });
   return text;
