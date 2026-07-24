@@ -826,7 +826,6 @@ function createEventBlock(data) {
     block.querySelector('.event-input').value = data.text || '';
     const ri = block.querySelector('.review-input');
     ri.value = data.review || '';
-    autoResize(ri);
     if(data.tag) {
       const tagMap = { work:'neutral', life:'neutral', learn:'good', other:'neutral' };
       const tag = ['good','neutral','bad'].includes(data.tag) ? data.tag : (tagMap[data.tag] || 'neutral');
@@ -838,10 +837,11 @@ function createEventBlock(data) {
     }
   }
 
-  autoResize(block.querySelector('.event-input'));
-  if(!data) {
-    // 新建时review不自动resize，等用户输入
-  }
+  // 延迟执行确保 DOM 渲染后再计算高度
+  setTimeout(() => {
+    block.querySelectorAll('textarea').forEach(ta => autoResize(ta));
+  }, 0);
+
   return block;
 }
 
@@ -1099,6 +1099,11 @@ function loadTodayData() {
   const readingList = document.getElementById('reading-list');
   readingList.innerHTML = '';
   (data.readingItems || []).forEach(text => createReadingItem(text));
+
+  // 全部加载完后统一触发 resize，确保多行内容完整展开
+  setTimeout(() => {
+    document.querySelectorAll('#main-content textarea, #overall-list textarea, #reading-list textarea').forEach(ta => autoResize(ta));
+  }, 50);
 }
 
 // ── 历史渲染 ──
@@ -1120,47 +1125,181 @@ function renderHistory() {
 
     const day = document.createElement('div');
     day.className = 'hist-day';
+    day.dataset.key = k;
     day.innerHTML = `
       <div class="hist-day-head" onclick="toggleHist(this)">
         <div class="hist-day-title">${dateStr}</div>
         <div class="hist-day-meta">
           <div class="hist-mood-dot hist-mood-${d.mood||3}"></div>
           ${moodLabel}
-          <div onclick="event.stopPropagation();editHistDay('${d.date}')" style="margin-left:10px;font-size:12px;color:var(--sub);padding:2px 8px;border:1px solid var(--line);border-radius:6px;cursor:pointer;">编辑</div>
+          <div class="hist-edit-trigger" onclick="event.stopPropagation()" style="margin-left:8px;font-size:12px;color:var(--sub);padding:2px 10px;border:1px solid var(--line);border-radius:6px;cursor:pointer;">编辑</div>
         </div>
       </div>
       <div class="hist-day-body"></div>`;
 
-    const body = day.querySelector('.hist-day-body');
-    (d.events || []).forEach(ev => {
-      const item = document.createElement('div');
-      item.className = 'hist-event-item';
-      let html = `<div class="hist-event-text">${escHtml(ev.text)}</div>`;
-      if(ev.review) html += `<div class="hist-review-text">${escHtml(ev.review)}</div>`;
-      if(ev.todos && ev.todos.length) {
-        html += ev.todos.map(t =>
-          `<div class="hist-todo-text${t.done?' done':''}">· ${escHtml(t.text)}</div>`
-        ).join('');
-      }
-      item.innerHTML = html;
-      body.appendChild(item);
+    // 绑定标题栏编辑按鈕
+    day.querySelector('.hist-edit-trigger').addEventListener('click', () => {
+      if(!body.classList.contains('open')) body.classList.add('open');
+      renderEditView(d);
     });
-    const overallArr = d.overallItems || (d.overallReview ? [d.overallReview] : []);
-    if(overallArr.length) {
-      const overall = document.createElement('div');
-      overall.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
-      overall.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">整体复盘</div>` +
-        overallArr.map((t,i) => `<div style="margin-bottom:3px">${overallArr.length>1?`${i+1}. `:''}​${escHtml(t)}</div>`).join('');
-      body.appendChild(overall);
-    }
-    if(d.readingItems && d.readingItems.length) {
-      const reading = document.createElement('div');
-      reading.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
-      reading.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">读书心得</div>` +
-        d.readingItems.map((t,i) => `<div style="margin-bottom:3px">${d.readingItems.length>1?`${i+1}. `:''}​${escHtml(t)}</div>`).join('');
-      body.appendChild(reading);
+
+    const body = day.querySelector('.hist-day-body');
+
+    // 渲染只读视图
+    function renderReadView(data) {
+      body.innerHTML = '';
+      (data.events || []).forEach(ev => {
+        const item = document.createElement('div');
+        item.className = 'hist-event-item';
+        let html = `<div class="hist-event-text">${escHtml(ev.text)}</div>`;
+        if(ev.tag) html += `<div style="display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;margin-bottom:4px;background:${ev.tag==='good'?'#E8F5E9':ev.tag==='bad'?'#FFEBEE':'#E3F2FD'};color:${ev.tag==='good'?'#52B26B':ev.tag==='bad'?'#E05252':'#4A90D9'}">${ev.tag==='good'?'好的':ev.tag==='bad'?'不好':'中性'}</div>`;
+        if(ev.review) html += `<div class="hist-review-text">${escHtml(ev.review)}</div>`;
+        if(ev.todos && ev.todos.length) {
+          html += ev.todos.map(t =>
+            `<div class="hist-todo-text${t.done?' done':''}">· ${escHtml(t.text)}</div>`
+          ).join('');
+        }
+        item.innerHTML = html;
+        body.appendChild(item);
+      });
+      const overallArr = data.overallItems || (data.overallReview ? [data.overallReview] : []);
+      if(overallArr.length) {
+        const el = document.createElement('div');
+        el.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
+        el.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">整体复盘</div>` +
+          overallArr.map((t,i) => `<div style="margin-bottom:3px">${overallArr.length>1?`${i+1}. `:''}${escHtml(t)}</div>`).join('');
+        body.appendChild(el);
+      }
+      if(data.readingItems && data.readingItems.length) {
+        const el = document.createElement('div');
+        el.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:#555;line-height:1.7;';
+        el.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px">读书心得</div>` +
+          data.readingItems.map((t,i) => `<div style="margin-bottom:3px">${data.readingItems.length>1?`${i+1}. `:''}${escHtml(t)}</div>`).join('');
+        body.appendChild(el);
+      }
+      // 不再在底部显示编辑按钮
     }
 
+    // 渲染编辑视图
+    function renderEditView(data) {
+      const snapshot = JSON.stringify(data); // 用于取消时恢复
+      body.innerHTML = '';
+
+      // 心情选择
+      const moodMap = [['1','低谷'],['2','普通'],['3','不错'],['4','很好'],['5','高效']];
+      const moodRow = document.createElement('div');
+      moodRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;';
+      moodMap.forEach(([val, label]) => {
+        const btn = document.createElement('div');
+        btn.style.cssText = `padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--line);${data.mood===val?'background:#333;color:#fff;':'background:var(--card);color:var(--sub);'}`;
+        btn.textContent = label;
+        btn.dataset.mood = val;
+        btn.addEventListener('click', () => {
+          moodRow.querySelectorAll('div').forEach(b => { b.style.background='var(--card)'; b.style.color='var(--sub)'; });
+          btn.style.background='#333'; btn.style.color='#fff';
+        });
+        moodRow.appendChild(btn);
+      });
+      body.appendChild(moodRow);
+
+      // 事项编辑区
+      const evSection = document.createElement('div');
+      evSection.style.cssText = 'margin-bottom:8px;';
+      (data.events || []).forEach((ev, idx) => {
+        const evBlock = document.createElement('div');
+        evBlock.style.cssText = 'padding:10px 0;border-top:1px solid var(--line);';
+        evBlock.innerHTML = `
+          <textarea class="hist-edit-ta" rows="1" style="width:100%;border:none;outline:none;font-size:14px;font-family:inherit;color:#333;background:transparent;resize:none;line-height:1.6;border-bottom:1px solid var(--line);padding-bottom:4px;" oninput="autoResize(this)">${escHtml(ev.text)}</textarea>
+          <textarea class="hist-edit-review" rows="1" style="width:100%;border:none;outline:none;font-size:13px;font-family:inherit;color:#666;background:transparent;resize:none;line-height:1.6;margin-top:6px;padding-left:10px;border-left:2px solid var(--line);" placeholder="复盘这件事…" oninput="autoResize(this)">${escHtml(ev.review||'')}</textarea>`;
+        evSection.appendChild(evBlock);
+        setTimeout(() => evBlock.querySelectorAll('textarea').forEach(ta => autoResize(ta)), 0);
+      });
+      body.appendChild(evSection);
+
+      // 整体复盘编辑
+      const overallArr = data.overallItems || (data.overallReview ? [data.overallReview] : []);
+      if(overallArr.length || true) {
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:11px;color:var(--sub);margin:10px 0 6px;';
+        label.textContent = '整体复盘';
+        body.appendChild(label);
+        const overallWrap = document.createElement('div');
+        overallWrap.className = 'hist-edit-overall';
+        overallArr.forEach(t => {
+          const ta = document.createElement('textarea');
+          ta.className = 'hist-edit-overall-item';
+          ta.rows = 1;
+          ta.value = t;
+          ta.placeholder = '整体复盘…';
+          ta.style.cssText = 'width:100%;border:none;outline:none;font-size:13px;font-family:inherit;color:#333;background:transparent;resize:none;line-height:1.6;border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:4px;';
+          ta.setAttribute('oninput','autoResize(this)');
+          overallWrap.appendChild(ta);
+          setTimeout(() => autoResize(ta), 0);
+        });
+        body.appendChild(overallWrap);
+      }
+
+      // 读书心得编辑
+      if(data.readingItems && data.readingItems.length) {
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:11px;color:var(--sub);margin:10px 0 6px;';
+        label.textContent = '读书心得';
+        body.appendChild(label);
+        const readingWrap = document.createElement('div');
+        readingWrap.className = 'hist-edit-reading';
+        data.readingItems.forEach(t => {
+          const ta = document.createElement('textarea');
+          ta.className = 'hist-edit-reading-item';
+          ta.rows = 1;
+          ta.value = t;
+          ta.placeholder = '读书心得…';
+          ta.style.cssText = 'width:100%;border:none;outline:none;font-size:13px;font-family:inherit;color:#333;background:transparent;resize:none;line-height:1.6;border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:4px;';
+          ta.setAttribute('oninput','autoResize(this)');
+          readingWrap.appendChild(ta);
+          setTimeout(() => autoResize(ta), 0);
+        });
+        body.appendChild(readingWrap);
+      }
+
+      // 保存 / 取消按钮
+      const btnRow = document.createElement('div');
+      btnRow.style.cssText = 'display:flex;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line);';
+      btnRow.innerHTML = `
+        <button style="flex:1;padding:11px;background:#8BBF8B;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">保存</button>
+        <button style="flex:1;padding:11px;background:transparent;color:var(--sub);border:1px solid var(--line);border-radius:10px;font-size:14px;cursor:pointer;">取消</button>`;
+      // 保存
+      btnRow.children[0].addEventListener('click', () => {
+        const activeMood = moodRow.querySelector('div[style*="background:#333"]');
+        const newMood = activeMood ? activeMood.dataset.mood : data.mood;
+        const moodLabels = {'1':'低谷','2':'普通','3':'不错','4':'很好','5':'高效'};
+        const newEvents = [];
+        evSection.querySelectorAll('[style*="border-top"]').forEach((evBlock, i) => {
+          const text = evBlock.querySelector('.hist-edit-ta')?.value.trim();
+          if(!text) return;
+          const review = evBlock.querySelector('.hist-edit-review')?.value.trim() || '';
+          newEvents.push({ ...(data.events[i]||{}), text, review });
+        });
+        const newOverall = [...body.querySelectorAll('.hist-edit-overall-item')].map(ta => ta.value.trim()).filter(Boolean);
+        const newReading = [...body.querySelectorAll('.hist-edit-reading-item')].map(ta => ta.value.trim()).filter(Boolean);
+        const newData = { ...data, mood: newMood, moodLabel: moodLabels[newMood], events: newEvents, overallItems: newOverall, readingItems: newReading };
+        localStorage.setItem(k, JSON.stringify(newData));
+        showToast('已保存');
+        renderReadView(newData);
+        renderHistory(); // 刷新列表（更新心情点颜色）
+        // 重新展开这天
+        setTimeout(() => {
+          const updated = list.querySelector(`[data-key="${k}"] .hist-day-body`);
+          if(updated) updated.classList.add('open');
+        }, 50);
+      });
+      // 取消
+      btnRow.children[1].addEventListener('click', () => {
+        renderReadView(JSON.parse(snapshot));
+      });
+      body.appendChild(btnRow);
+    }
+
+    renderReadView(d);
     list.appendChild(day);
   });
 }
