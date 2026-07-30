@@ -188,6 +188,13 @@ body {
   flex-shrink: 0; padding: 0 2px; line-height: 1;
   transition: color 0.15s;
 }
+.todo-type-tag {
+  font-size: 10px; font-weight: 600; border-radius: 4px;
+  padding: 1px 6px; flex-shrink: 0; cursor: pointer;
+  transition: all 0.15s; user-select: none;
+}
+.todo-type-tag[data-type="tomorrow"]{ background: #FFF4E6; color: #E6A050; }
+.todo-type-tag[data-type="longterm"]{ background: #F0F7F0; color: #6BAF7A; }
 .todo-delete:hover { color: #E05252; }
 
 /* 事项内部添加按钮 */
@@ -295,6 +302,10 @@ body {
   letter-spacing: 1px; text-transform: uppercase;
   display: flex; justify-content: space-between; align-items: center;
 }
+.todo-page-header-add {
+  font-size: 18px; line-height: 1; color: var(--blue);
+  cursor: pointer; padding: 0 4px; font-weight: 400;
+}
 .todo-page-item {
   background: var(--card);
   border-bottom: 1px solid var(--line);
@@ -312,6 +323,19 @@ body {
 .todo-page-text { flex:1; font-size:15px; color: var(--text); }
 .todo-page-text.striked { text-decoration: line-through; color: var(--done); }
 .todo-page-from { font-size:11px; color:var(--sub); background:var(--tag-bg); border-radius:4px; padding:1px 6px; flex-shrink:0; }
+.todo-page-delete { font-size:16px; color:#ccc; cursor:pointer; padding:0 4px; flex-shrink:0; }
+.todo-page-delete:active { color:#f66; }
+.todo-page-input-row {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.todo-page-input-row input {
+  flex:1; border:none; outline:none; font-size:15px;
+  font-family:inherit; background:transparent; color:var(--text);
+}
+.todo-page-input-row input::placeholder { color:#ccc; }
 .todo-empty { padding: 32px 20px; text-align: center; font-size: 14px; color: var(--sub); }
 
 /* ── 提醒设置 ── */
@@ -856,19 +880,32 @@ function setTag(el, type) {
 }
 
 // ── 添加待办 ──
+const _todoTypes = ['tomorrow', 'longterm'];
+const _todoTypeLabels = { tomorrow: '明日', longterm: '长期' };
+
 function addTodo(blockId, data) {
   const area = document.getElementById('todos-' + blockId);
   if(!area) return;
   const row = document.createElement('div');
   row.className = 'todo-row';
   const isPrev = data && data.fromPrev;
+  const todoType = (data && data.todoType && data.todoType !== 'today') ? data.todoType : 'tomorrow';
   row.innerHTML = `
     <div class="todo-check${data && data.done ? ' done' : ''}"
       onclick="toggleTodo(this)"></div>
     <input class="todo-text${data && data.done ? ' striked' : ''}"
       placeholder="待办事项…" value="${data ? escHtml(data.text||'') : ''}">
     ${isPrev ? `<span class="todo-from-prev">${data.fromDate||'昨天'}</span>` : ''}
+    <span class="todo-type-tag" data-type="${todoType}">${_todoTypeLabels[todoType]}</span>
     <div class="todo-delete" onclick="this.closest('.todo-row').remove()">×</div>`;
+  // 点击标签循环切换类型
+  const tag = row.querySelector('.todo-type-tag');
+  tag.addEventListener('click', () => {
+    const cur = tag.dataset.type;
+    const next = _todoTypes[(_todoTypes.indexOf(cur) + 1) % _todoTypes.length];
+    tag.dataset.type = next;
+    tag.textContent = _todoTypeLabels[next];
+  });
   area.appendChild(row);
   if(!data) row.querySelector('input').focus();
 }
@@ -985,6 +1022,14 @@ document.querySelectorAll('.mood-opt').forEach(opt => {
 // 每 30 秒兜底保存一次
 setInterval(() => saveToday(), 30000);
 
+// 切换到后台 / 锁屏时立即保存
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden') saveToday();
+});
+
+// 关闭/刷新页面前保存
+window.addEventListener('beforeunload', () => saveToday());
+
 
 function loadCarryOver() {
   const yesterday = new Date(now);
@@ -1044,7 +1089,8 @@ function collectToday() {
     block.querySelectorAll('.todo-row').forEach(row => {
       const t = row.querySelector('.todo-text').value.trim();
       const done = row.querySelector('.todo-check').classList.contains('done');
-      if(t) todos.push({ text: t, done });
+      const todoType = row.querySelector('.todo-type-tag') ? row.querySelector('.todo-type-tag').dataset.type : 'tomorrow';
+      if(t) todos.push({ text: t, done, todoType });
     });
     events.push({ text, review, tag, todos });
   });
@@ -1067,6 +1113,27 @@ function collectToday() {
 function saveToday() {
   const data = collectToday();
   localStorage.setItem('review_' + activeKey, JSON.stringify(data));
+
+  // 把标记为「明日」「长期」的待办同步写入独立存储（去重）
+  const tomorrowList = loadStandaloneTodos('tomorrow');
+  const longtermList = loadStandaloneTodos('longterm');
+  let changed = false;
+  data.events.forEach(ev => {
+    (ev.todos || []).forEach(t => {
+      if(t.todoType === 'tomorrow') {
+        const exists = tomorrowList.some(x => x.text === t.text);
+        if(!exists) { tomorrowList.push({ text: t.text, done: t.done }); changed = true; }
+      } else if(t.todoType === 'longterm') {
+        const exists = longtermList.some(x => x.text === t.text);
+        if(!exists) { longtermList.push({ text: t.text, done: t.done }); changed = true; }
+      }
+    });
+  });
+  if(changed) {
+    saveStandaloneTodos('tomorrow', tomorrowList);
+    saveStandaloneTodos('longterm', longtermList);
+  }
+
   renderHistory();
 }
 
@@ -1137,13 +1204,13 @@ function renderHistory() {
       </div>
       <div class="hist-day-body"></div>`;
 
-    // 绑定标题栏编辑按鈕
+    const body = day.querySelector('.hist-day-body');
+
+    // 绑定标题栏编辑按钮
     day.querySelector('.hist-edit-trigger').addEventListener('click', () => {
       if(!body.classList.contains('open')) body.classList.add('open');
       renderEditView(d);
     });
-
-    const body = day.querySelector('.hist-day-body');
 
     // 渲染只读视图
     function renderReadView(data) {
@@ -1501,12 +1568,36 @@ document.getElementById('remind-setting-btn').addEventListener('click', function
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
+// ── 明日待办 / 长期待办 存取 ──
+function loadStandaloneTodos(type) {
+  // type: 'tomorrow' | 'longterm'
+  const raw = localStorage.getItem('todos_' + type);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveStandaloneTodos(type, list) {
+  localStorage.setItem('todos_' + type, JSON.stringify(list));
+}
+
 // ── 渲染待办总览页 ──
 function renderTodoPage() {
   const content = document.getElementById('todo-page-content');
   content.innerHTML = '';
 
-  // 收集所有未完成待办（按日期从近到远）
+  let totalPending = 0;
+
+  // ── 明日待办 分区 ──
+  const tomorrowList = loadStandaloneTodos('tomorrow');
+  const tomorrowSec = buildStandaloneSection('明日待办', 'tomorrow', tomorrowList);
+  content.appendChild(tomorrowSec);
+  tomorrowList.forEach(i => { if(!i.done) totalPending++; });
+
+  // ── 长期待办 分区 ──
+  const longtermList = loadStandaloneTodos('longterm');
+  const longtermSec = buildStandaloneSection('长期待办', 'longterm', longtermList);
+  content.appendChild(longtermSec);
+  longtermList.forEach(i => { if(!i.done) totalPending++; });
+
+  // ── 今日事项待办（只读展示，来自今日记录页） ──
   const keys = [];
   for(let i=0;i<localStorage.length;i++) {
     const k = localStorage.key(i);
@@ -1514,79 +1605,155 @@ function renderTodoPage() {
   }
   keys.sort((a,b) => b.localeCompare(a));
 
-  let totalPending = 0;
-  let totalDone = 0;
-  const sections = [];
-
-  // 今天的待办（含今日页当前未保存内容）
-  const todayTodos = [];
-  document.querySelectorAll('#event-list .event-block').forEach(block => {
-    const evText = block.querySelector('.event-input').value.trim();
-    block.querySelectorAll('.todo-row').forEach(row => {
-      const t = row.querySelector('.todo-text').value.trim();
-      const done = row.querySelector('.todo-check').classList.contains('done');
-      if(t) todayTodos.push({ text: t, done, from: '今日', evText });
-    });
-  });
-  if(todayTodos.length) sections.push({ label: '今日', items: todayTodos });
-
-  // 历史未完成
   const histPending = [];
   keys.forEach(k => {
     const dateStr = k.replace('review_','');
-    if(dateStr === todayKey) return;
     const d = JSON.parse(localStorage.getItem(k));
     (d.events||[]).forEach(ev => {
       (ev.todos||[]).forEach(t => {
         if(!t.done && t.text) {
-          histPending.push({ text: t.text, done: false, from: formatDateShort(dateStr), evText: ev.text });
+          histPending.push({ text: t.text, done: false, from: formatDateShort(dateStr), evText: ev.text, storageKey: k, evText2: ev.text });
         }
       });
     });
   });
-  if(histPending.length) sections.push({ label: '未完成跟进', items: histPending });
+  if(histPending.length) {
+    const sec = document.createElement('div');
+    sec.className = 'todo-page-section';
+    sec.innerHTML = `<div class="todo-page-header">事项待办跟进</div>`;
+    histPending.forEach(item => {
+      totalPending++;
+      const row = document.createElement('div');
+      row.className = 'todo-page-item';
+      row.innerHTML = `
+        <div class="todo-page-check" onclick="toggleTodoPage(this,'${item.storageKey}','${escHtml(item.evText2)}','${escHtml(item.text)}')"></div>
+        <div class="todo-page-text">${escHtml(item.text)}</div>
+        <span class="todo-page-from">${item.from}</span>`;
+      sec.appendChild(row);
+    });
+    content.appendChild(sec);
+  }
 
-  // 统计
-  sections.forEach(s => s.items.forEach(i => { if(i.done) totalDone++; else totalPending++; }));
+  // 更新副标题和导航角标
   document.getElementById('todo-page-sub').textContent =
     totalPending > 0 ? `${totalPending} 项待完成` : '全部完成';
-
-  // 更新导航角标
   const navTodos = document.getElementById('nav-todos');
   navTodos.innerHTML = totalPending > 0
     ? `待办 <span class="nav-badge">${totalPending}</span>`
     : '待办';
+}
 
-  if(sections.length === 0) {
-    content.innerHTML = '<div class="todo-empty">暂无待办事项</div>';
-    return;
+// ── 构建独立待办分区（明日/长期）──
+function buildStandaloneSection(label, type, list) {
+  const sec = document.createElement('div');
+  sec.className = 'todo-page-section';
+
+  const header = document.createElement('div');
+  header.className = 'todo-page-header';
+  header.innerHTML = `<span>${label}</span><span class="todo-page-header-add" onclick="addStandaloneTodo('${type}')">+</span>`;
+  sec.appendChild(header);
+
+  list.forEach((item, idx) => {
+    const row = buildStandaloneTodoRow(type, item, idx, list);
+    sec.appendChild(row);
+  });
+
+  if(list.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:10px 20px 14px;font-size:13px;color:#ccc;';
+    empty.textContent = '点击 + 添加';
+    sec.appendChild(empty);
   }
+  return sec;
+}
 
-  sections.forEach(sec => {
-    const secEl = document.createElement('div');
-    secEl.className = 'todo-page-section';
-    const header = document.createElement('div');
-    header.className = 'todo-page-header';
-    header.textContent = sec.label;
-    secEl.appendChild(header);
+function buildStandaloneTodoRow(type, item, idx, list) {
+  const row = document.createElement('div');
+  row.className = 'todo-page-item';
+  row.innerHTML = `
+    <div class="todo-page-check${item.done?' done':''}"></div>
+    <div class="todo-page-text${item.done?' striked':''}">${escHtml(item.text)}</div>
+    <div class="todo-page-delete">×</div>`;
 
-    sec.items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'todo-page-item';
-      row.innerHTML = `
-        <div class="todo-page-check${item.done?' done':''}" onclick="toggleTodoPage(this)"></div>
-        <div class="todo-page-text${item.done?' striked':''}">${escHtml(item.text)}</div>
-        ${item.from !== '今日' ? `<span class="todo-page-from">${item.from}</span>` : ''}`;
-      secEl.appendChild(row);
-    });
-    content.appendChild(secEl);
+  const check = row.querySelector('.todo-page-check');
+  const del = row.querySelector('.todo-page-delete');
+
+  // 双击确认完成
+  check.addEventListener('click', () => {
+    if(item.done) {
+      // 已完成 → 撤销
+      item.done = false;
+      list[idx].done = false;
+      saveStandaloneTodos(type, list);
+      renderTodoPage();
+      return;
+    }
+    if(_todoPending.has(check)) {
+      clearTimeout(_todoPending.get(check));
+      _todoPending.delete(check);
+      check.classList.remove('pending');
+      item.done = true;
+      list[idx].done = true;
+      saveStandaloneTodos(type, list);
+      showUndoToastStandalone(check, type, idx, list);
+      renderTodoPage();
+    } else {
+      check.classList.add('pending');
+      showToast('再次点击确认完成');
+      const timer = setTimeout(() => {
+        check.classList.remove('pending');
+        _todoPending.delete(check);
+      }, 2500);
+      _todoPending.set(check, timer);
+    }
+  });
+
+  // 删除按钮
+  del.addEventListener('click', () => {
+    list.splice(idx, 1);
+    saveStandaloneTodos(type, list);
+    renderTodoPage();
+  });
+
+  return row;
+}
+
+function showUndoToastStandalone(checkEl, type, idx, list) {
+  const existing = document.getElementById('undo-toast');
+  if(existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'undo-toast';
+  toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#333;color:#fff;border-radius:20px;padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);';
+  toast.innerHTML = '<span>已完成</span><button id="undo-btn" style="background:#fff;color:#333;border:none;border-radius:10px;padding:3px 10px;font-size:12px;cursor:pointer;">撤销</button>';
+  document.body.appendChild(toast);
+  const undoTimer = setTimeout(() => toast.remove(), 3000);
+  document.getElementById('undo-btn').addEventListener('click', () => {
+    clearTimeout(undoTimer);
+    toast.remove();
+    list[idx].done = false;
+    saveStandaloneTodos(type, list);
+    renderTodoPage();
   });
 }
 
-function toggleTodoPage(el) {
+// ── 添加独立待办条目 ──
+function addStandaloneTodo(type) {
+  const list = loadStandaloneTodos(type);
+  const text = prompt(type === 'tomorrow' ? '添加明日待办：' : '添加长期待办：');
+  if(!text || !text.trim()) return;
+  list.push({ text: text.trim(), done: false });
+  saveStandaloneTodos(type, list);
+  renderTodoPage();
+}
+
+// ── 事项待办跟进：在 localStorage 中直接标记完成 ──
+function toggleTodoPage(el, storageKey, evText, todoText) {
   if(el.classList.contains('done')) {
+    // 撤销：写回 localStorage
+    updateTodoDone(storageKey, evText, todoText, false);
     el.classList.remove('done');
     el.nextElementSibling.classList.remove('striked');
+    saveToday();
     return;
   }
   if(_todoPending.has(el)) {
@@ -1595,6 +1762,9 @@ function toggleTodoPage(el) {
     el.classList.remove('pending');
     el.classList.add('done');
     el.nextElementSibling.classList.add('striked');
+    // 写回 localStorage
+    updateTodoDone(storageKey, evText, todoText, true);
+    saveToday();
     showUndoToast(el);
   } else {
     el.classList.add('pending');
@@ -1605,6 +1775,21 @@ function toggleTodoPage(el) {
     }, 2500);
     _todoPending.set(el, timer);
   }
+}
+
+// 将指定待办的 done 状态写回 localStorage
+function updateTodoDone(storageKey, evText, todoText, doneVal) {
+  const raw = localStorage.getItem(storageKey);
+  if(!raw) return;
+  const d = JSON.parse(raw);
+  (d.events||[]).forEach(ev => {
+    if(ev.text === evText) {
+      (ev.todos||[]).forEach(t => {
+        if(t.text === todoText) t.done = doneVal;
+      });
+    }
+  });
+  localStorage.setItem(storageKey, JSON.stringify(d));
 }
 
 function formatDateShort(dateStr) {
