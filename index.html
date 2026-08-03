@@ -295,47 +295,55 @@ body {
 }
 
 /* ── 待办总览页 ── */
-.todo-page-section { margin-bottom: 8px; }
+.todo-page-section { margin-bottom: 0; }
 .todo-page-header {
-  padding: 12px 20px 8px;
-  font-size: 11px; font-weight: 600; color: var(--sub);
-  letter-spacing: 1px; text-transform: uppercase;
+  padding: 18px 20px 10px;
+  font-size: 13px; font-weight: 600; color: var(--text);
   display: flex; justify-content: space-between; align-items: center;
 }
-.todo-page-header-add {
-  font-size: 18px; line-height: 1; color: var(--blue);
-  cursor: pointer; padding: 0 4px; font-weight: 400;
-}
+.todo-page-header-count { font-size: 12px; color: var(--sub); font-weight: 400; }
 .todo-page-item {
   background: var(--card);
   border-bottom: 1px solid var(--line);
-  padding: 13px 20px;
+  padding: 14px 20px;
   display: flex; align-items: center; gap: 12px;
 }
 .todo-page-check {
-  width: 18px; height: 18px; border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   border: 1.5px solid var(--blue); flex-shrink: 0;
   cursor: pointer; display: flex; align-items: center;
   justify-content: center; transition: all 0.18s;
 }
 .todo-page-check.done { background: var(--done); border-color: var(--done); }
-.todo-page-check.done::after { content:''; width:6px; height:6px; border-radius:50%; background:white; }
-.todo-page-text { flex:1; font-size:15px; color: var(--text); }
+.todo-page-check.done::after { content:''; width:7px; height:7px; border-radius:50%; background:white; }
+.todo-page-check.pending { opacity:0.5; transform:scale(0.9); }
+.todo-page-text { flex:1; font-size:15px; color: var(--text); line-height:1.4; }
 .todo-page-text.striked { text-decoration: line-through; color: var(--done); }
-.todo-page-from { font-size:11px; color:var(--sub); background:var(--tag-bg); border-radius:4px; padding:1px 6px; flex-shrink:0; }
-.todo-page-delete { font-size:16px; color:#ccc; cursor:pointer; padding:0 4px; flex-shrink:0; }
+.todo-page-delete { font-size:18px; color:#ddd; cursor:pointer; padding:0 4px; flex-shrink:0; line-height:1; }
 .todo-page-delete:active { color:#f66; }
-.todo-page-input-row {
-  background: var(--card);
-  border-bottom: 1px solid var(--line);
-  padding: 10px 20px;
-  display: flex; align-items: center; gap: 10px;
+.todo-add-row {
+  background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 12px 20px; display: flex; align-items: center; gap: 12px;
 }
-.todo-page-input-row input {
+.todo-add-row input {
   flex:1; border:none; outline:none; font-size:15px;
   font-family:inherit; background:transparent; color:var(--text);
 }
-.todo-page-input-row input::placeholder { color:#ccc; }
+.todo-add-row input::placeholder { color:#ccc; }
+.todo-add-row-btn {
+  font-size:13px; color:var(--blue); cursor:pointer;
+  padding:4px 10px; border:1px solid var(--blue);
+  border-radius:8px; flex-shrink:0; font-weight:500;
+}
+.todo-done-toggle {
+  padding: 14px 20px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; user-select: none; font-size: 13px; color: var(--sub);
+  border-top: 1px solid var(--line); margin-top: 8px;
+}
+.todo-done-arrow { font-size: 11px; transition: transform 0.2s; display:inline-block; }
+.todo-done-arrow.open { transform: rotate(90deg); }
+.todo-done-list { display: none; }
+.todo-done-list.open { display: block; }
 .todo-empty { padding: 32px 20px; text-align: center; font-size: 14px; color: var(--sub); }
 
 /* ── 提醒设置 ── */
@@ -466,6 +474,24 @@ body {
 /* ── 页面切换 ── */
 .page { display: none; }
 .page.active { display: block; }
+
+/* ── 读书心得页 ── */
+.reading-page-item {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 20px;
+}
+.reading-page-date {
+  font-size: 11px; color: var(--sub); margin-bottom: 6px;
+}
+.reading-page-text {
+  font-size: 14px; line-height: 1.7; color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+.reading-page-empty {
+  padding: 60px 20px; text-align: center;
+  font-size: 14px; color: var(--sub);
+}
 
 /* ── Toast ── */
 .toast {
@@ -731,11 +757,23 @@ body {
   <div id="todo-page-content" style="padding-bottom:100px"></div>
 </div>
 
+<!-- ══════════════ 读书心得页 ══════════════ -->
+<div class="page" id="page-reading">
+  <div class="topbar">
+    <div>
+      <div class="topbar-date">读书心得</div>
+      <div class="topbar-sub" id="reading-page-sub">汇总所有读书记录</div>
+    </div>
+  </div>
+  <div id="reading-page-content" style="padding-bottom:100px"></div>
+</div>
+
 <!-- ══════════════ 底部导航 ══════════════ -->
 <div class="bottom-nav">
   <div class="nav-item active" onclick="switchPage('todos', this)" id="nav-todos">待办</div>
   <div class="nav-item" onclick="switchPage('today', this)">今日</div>
   <div class="nav-item" onclick="switchPage('history', this)">历史</div>
+  <div class="nav-item" onclick="switchPage('reading', this)">读书</div>
   <div class="nav-item" onclick="switchPage('export', this)">导出</div>
 </div>
 
@@ -1560,6 +1598,45 @@ function switchPage(name, el) {
   el.classList.add('active');
   if(name === 'history') renderHistory();
   if(name === 'todos') renderTodoPage();
+  if(name === 'reading') renderReadingPage();
+}
+
+// ── 渲染读书心得页 ──
+function renderReadingPage() {
+  const content = document.getElementById('reading-page-content');
+  content.innerHTML = '';
+
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(k.startsWith('review_')) keys.push(k);
+  }
+  keys.sort((a, b) => b.localeCompare(a));
+
+  let totalCount = 0;
+  keys.forEach(k => {
+    const dateStr = k.replace('review_', '');
+    const d = JSON.parse(localStorage.getItem(k));
+    const items = d.readingItems || [];
+    if(!items.length) return;
+    items.forEach(text => {
+      if(!text || !text.trim()) return;
+      totalCount++;
+      const el = document.createElement('div');
+      el.className = 'reading-page-item';
+      el.innerHTML = `
+        <div class="reading-page-date">${formatDate(dateStr)}</div>
+        <div class="reading-page-text">${escHtml(text)}</div>`;
+      content.appendChild(el);
+    });
+  });
+
+  document.getElementById('reading-page-sub').textContent =
+    totalCount > 0 ? `共 ${totalCount} 条记录` : '暂无记录';
+
+  if(totalCount === 0) {
+    content.innerHTML = '<div class="reading-page-empty">还没有读书心得<br>在今日页添加后会汇总到这里</div>';
+  }
 }
 
 // ── 提醒设置按钮 ──
@@ -1568,9 +1645,8 @@ document.getElementById('remind-setting-btn').addEventListener('click', function
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
-// ── 明日待办 / 长期待办 存取 ──
+// ── 明日/长期待办 存取（合并为长期） ──
 function loadStandaloneTodos(type) {
-  // type: 'tomorrow' | 'longterm'
   const raw = localStorage.getItem('todos_' + type);
   return raw ? JSON.parse(raw) : [];
 }
@@ -1583,108 +1659,225 @@ function renderTodoPage() {
   const content = document.getElementById('todo-page-content');
   content.innerHTML = '';
 
-  let totalPending = 0;
+  // 迁移旧数据：tomorrow → longterm
+  const tmr = loadStandaloneTodos('tomorrow');
+  if(tmr.length) {
+    const lng = loadStandaloneTodos('longterm');
+    tmr.forEach(t => { if(!lng.some(x => x.text === t.text)) lng.push(t); });
+    saveStandaloneTodos('longterm', lng);
+    saveStandaloneTodos('tomorrow', []);
+  }
 
-  // ── 明日待办 分区 ──
-  const tomorrowList = loadStandaloneTodos('tomorrow');
-  const tomorrowSec = buildStandaloneSection('明日待办', 'tomorrow', tomorrowList);
-  content.appendChild(tomorrowSec);
-  tomorrowList.forEach(i => { if(!i.done) totalPending++; });
+  // 迁移历史 review_* 里的所有 todos → longterm（只迁移一次，迁移后打标记）
+  if(!localStorage.getItem('todos_migrated_v2')) {
+    const lng = loadStandaloneTodos('longterm');
+    const allKeys = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k.startsWith('review_')) allKeys.push(k);
+    }
+    allKeys.forEach(k => {
+      const d = JSON.parse(localStorage.getItem(k));
+      (d.events||[]).forEach(ev => {
+        (ev.todos||[]).forEach(t => {
+          if(t.text && !lng.some(x => x.text === t.text)) {
+            lng.push({ text: t.text, done: t.done || false });
+          }
+        });
+      });
+    });
+    saveStandaloneTodos('longterm', lng);
+    localStorage.setItem('todos_migrated_v2', '1');
+  }
 
-  // ── 长期待办 分区 ──
   const longtermList = loadStandaloneTodos('longterm');
-  const longtermSec = buildStandaloneSection('长期待办', 'longterm', longtermList);
-  content.appendChild(longtermSec);
-  longtermList.forEach(i => { if(!i.done) totalPending++; });
 
-  // ── 今日事项待办（只读展示，来自今日记录页） ──
+  // ── 收集今日待办（来自今日记录页各事项） ──
+  const todayTodos = [];
+  const allDone = []; // 所有已完成（今日+长期）
+
+  // 历史记录中的今日事项待办（含当前编辑日从localStorage读取）
   const keys = [];
-  for(let i=0;i<localStorage.length;i++) {
+  for(let i=0;i<localStorage.length;i++){
     const k = localStorage.key(i);
     if(k.startsWith('review_')) keys.push(k);
   }
   keys.sort((a,b) => b.localeCompare(a));
-
-  const histPending = [];
   keys.forEach(k => {
     const dateStr = k.replace('review_','');
     const d = JSON.parse(localStorage.getItem(k));
     (d.events||[]).forEach(ev => {
       (ev.todos||[]).forEach(t => {
-        if(!t.done && t.text) {
-          histPending.push({ text: t.text, done: false, from: formatDateShort(dateStr), evText: ev.text, storageKey: k, evText2: ev.text });
-        }
+        if(!t.text) return;
+        if(t.done) allDone.push({ text: t.text, from: formatDateShort(dateStr), src: 'history' });
+        else todayTodos.push({ text: t.text, evText: ev.text, from: formatDateShort(dateStr), src: 'history', storageKey: k });
       });
     });
   });
-  if(histPending.length) {
-    const sec = document.createElement('div');
-    sec.className = 'todo-page-section';
-    sec.innerHTML = `<div class="todo-page-header">事项待办跟进</div>`;
-    histPending.forEach(item => {
-      totalPending++;
-      const row = document.createElement('div');
-      row.className = 'todo-page-item';
-      row.innerHTML = `
-        <div class="todo-page-check" onclick="toggleTodoPage(this,'${item.storageKey}','${escHtml(item.evText2)}','${escHtml(item.text)}')"></div>
-        <div class="todo-page-text">${escHtml(item.text)}</div>
-        <span class="todo-page-from">${item.from}</span>`;
-      sec.appendChild(row);
-    });
-    content.appendChild(sec);
-  }
 
-  // 更新副标题和导航角标
+  // 长期待办分未完成/已完成
+  const longtermPending = longtermList.filter(i => !i.done);
+  longtermList.filter(i => i.done).forEach(i => allDone.push({ text: i.text, src: 'longterm', idx: longtermList.indexOf(i) }));
+
+  // 统计角标
+  const totalPending = todayTodos.length + longtermPending.length;
   document.getElementById('todo-page-sub').textContent =
     totalPending > 0 ? `${totalPending} 项待完成` : '全部完成';
   const navTodos = document.getElementById('nav-todos');
   navTodos.innerHTML = totalPending > 0
-    ? `待办 <span class="nav-badge">${totalPending}</span>`
-    : '待办';
-}
+    ? `待办 <span class="nav-badge">${totalPending}</span>` : '待办';
 
-// ── 构建独立待办分区（明日/长期）──
-function buildStandaloneSection(label, type, list) {
-  const sec = document.createElement('div');
-  sec.className = 'todo-page-section';
-
-  const header = document.createElement('div');
-  header.className = 'todo-page-header';
-  header.innerHTML = `<span>${label}</span><span class="todo-page-header-add" onclick="addStandaloneTodo('${type}')">+</span>`;
-  sec.appendChild(header);
-
-  list.forEach((item, idx) => {
-    const row = buildStandaloneTodoRow(type, item, idx, list);
-    sec.appendChild(row);
-  });
-
-  if(list.length === 0) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'padding:10px 20px 14px;font-size:13px;color:#ccc;';
-    empty.textContent = '点击 + 添加';
-    sec.appendChild(empty);
+  // ── 分区1：今日待办 ──
+  const sec1 = buildSectionHeader('今日待办', `${todayTodos.length} 项`);
+  content.appendChild(sec1);
+  if(todayTodos.length === 0) {
+    content.appendChild(buildEmptyHint('今日暂无待办'));
+  } else {
+    todayTodos.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'todo-page-item';
+      row.innerHTML = `
+        <div class="todo-page-check"></div>
+        <div class="todo-page-text">${escHtml(item.text)}</div>
+        ${item.from ? `<span class="todo-page-from">${item.from}</span>` : ''}`;
+      // 点击直接写回 localStorage
+      const check = row.querySelector('.todo-page-check');
+      check.addEventListener('click', () => {
+        if(!item.storageKey) return;
+        if(_todoPending.has(check)) {
+          clearTimeout(_todoPending.get(check));
+          _todoPending.delete(check);
+          check.classList.remove('pending');
+          // 写回
+          const raw = localStorage.getItem(item.storageKey);
+          if(raw) {
+            const dd = JSON.parse(raw);
+            (dd.events||[]).forEach(ev => {
+              if(ev.text === item.evText) {
+                (ev.todos||[]).forEach(t => { if(t.text === item.text) t.done = true; });
+              }
+            });
+            localStorage.setItem(item.storageKey, JSON.stringify(dd));
+          }
+          renderTodoPage();
+        } else {
+          check.classList.add('pending');
+          showToast('再次点击确认完成');
+          const timer = setTimeout(() => {
+            check.classList.remove('pending');
+            _todoPending.delete(check);
+          }, 2500);
+          _todoPending.set(check, timer);
+        }
+      });
+      content.appendChild(row);
+    });
   }
-  return sec;
+
+  // ── 分区2：长期待办 ──
+  const sec2 = buildSectionHeader('长期待办', `${longtermPending.length} 项`);
+  content.appendChild(sec2);
+  if(longtermPending.length === 0) {
+    content.appendChild(buildEmptyHint('暂无长期待办'));
+  } else {
+    longtermPending.forEach(item => {
+      const idx = longtermList.indexOf(item);
+      content.appendChild(buildTodoRow(longtermList, idx));
+    });
+  }
+  // 添加输入行
+  const addRow = document.createElement('div');
+  addRow.className = 'todo-add-row';
+  addRow.innerHTML = `<input id="todo-add-input" placeholder="添加长期待办…" /><div class="todo-add-row-btn">添加</div>`;
+  content.appendChild(addRow);
+  const inp = addRow.querySelector('input');
+  const btn = addRow.querySelector('.todo-add-row-btn');
+  const doAdd = () => {
+    const t = inp.value.trim();
+    if(!t) return;
+    longtermList.push({ text: t, done: false });
+    saveStandaloneTodos('longterm', longtermList);
+    inp.value = '';
+    renderTodoPage();
+    setTimeout(() => { const ni = document.getElementById('todo-add-input'); if(ni) ni.focus(); }, 50);
+  };
+  btn.addEventListener('click', doAdd);
+  inp.addEventListener('keydown', e => { if(e.key === 'Enter') doAdd(); });
+
+  // ── 分区3：已完成（折叠） ──
+  if(allDone.length > 0) {
+    const toggle = document.createElement('div');
+    toggle.className = 'todo-done-toggle';
+    toggle.innerHTML = `<span class="todo-done-arrow">›</span><span>已完成 (${allDone.length})</span>`;
+    content.appendChild(toggle);
+
+    const doneList = document.createElement('div');
+    doneList.className = 'todo-done-list';
+    allDone.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'todo-page-item';
+      row.innerHTML = `
+        <div class="todo-page-check done"></div>
+        <div class="todo-page-text striked">${escHtml(item.text)}</div>
+        ${item.from ? `<span class="todo-page-from">${item.from}</span>` : ''}
+        ${item.src === 'longterm' ? `<div class="todo-page-delete" data-idx="${item.idx}">×</div>` : ''}`;
+      if(item.src === 'longterm') {
+        const del = row.querySelector('.todo-page-delete');
+        del.addEventListener('click', () => {
+          longtermList.splice(item.idx, 1);
+          saveStandaloneTodos('longterm', longtermList);
+          renderTodoPage();
+        });
+        // 点圆圈可撤销完成
+        const check = row.querySelector('.todo-page-check');
+        check.addEventListener('click', () => {
+          longtermList[item.idx].done = false;
+          saveStandaloneTodos('longterm', longtermList);
+          renderTodoPage();
+        });
+      }
+      doneList.appendChild(row);
+    });
+    content.appendChild(doneList);
+
+    toggle.addEventListener('click', () => {
+      toggle.querySelector('.todo-done-arrow').classList.toggle('open');
+      doneList.classList.toggle('open');
+    });
+  }
 }
 
-function buildStandaloneTodoRow(type, item, idx, list) {
+function buildSectionHeader(label, count) {
+  const el = document.createElement('div');
+  el.className = 'todo-page-header';
+  el.innerHTML = `<span>${label}</span><span class="todo-page-header-count">${count}</span>`;
+  return el;
+}
+
+function buildEmptyHint(text) {
+  const el = document.createElement('div');
+  el.style.cssText = 'padding:10px 20px 14px;font-size:13px;color:#ccc;background:var(--card);border-bottom:1px solid var(--line);';
+  el.textContent = text;
+  return el;
+}
+
+// ── 构建单条待办行 ──
+function buildTodoRow(list, idx) {
+  const item = list[idx];
   const row = document.createElement('div');
   row.className = 'todo-page-item';
   row.innerHTML = `
-    <div class="todo-page-check${item.done?' done':''}"></div>
-    <div class="todo-page-text${item.done?' striked':''}">${escHtml(item.text)}</div>
+    <div class="todo-page-check${item.done ? ' done' : ''}"></div>
+    <div class="todo-page-text${item.done ? ' striked' : ''}">${escHtml(item.text)}</div>
     <div class="todo-page-delete">×</div>`;
 
   const check = row.querySelector('.todo-page-check');
-  const del = row.querySelector('.todo-page-delete');
+  const del   = row.querySelector('.todo-page-delete');
 
-  // 双击确认完成
   check.addEventListener('click', () => {
     if(item.done) {
-      // 已完成 → 撤销
-      item.done = false;
       list[idx].done = false;
-      saveStandaloneTodos(type, list);
+      saveStandaloneTodos('longterm', list);
       renderTodoPage();
       return;
     }
@@ -1692,11 +1885,10 @@ function buildStandaloneTodoRow(type, item, idx, list) {
       clearTimeout(_todoPending.get(check));
       _todoPending.delete(check);
       check.classList.remove('pending');
-      item.done = true;
       list[idx].done = true;
-      saveStandaloneTodos(type, list);
-      showUndoToastStandalone(check, type, idx, list);
+      saveStandaloneTodos('longterm', list);
       renderTodoPage();
+      showUndoToastLongterm(idx, list);
     } else {
       check.classList.add('pending');
       showToast('再次点击确认完成');
@@ -1708,17 +1900,16 @@ function buildStandaloneTodoRow(type, item, idx, list) {
     }
   });
 
-  // 删除按钮
   del.addEventListener('click', () => {
     list.splice(idx, 1);
-    saveStandaloneTodos(type, list);
+    saveStandaloneTodos('longterm', list);
     renderTodoPage();
   });
 
   return row;
 }
 
-function showUndoToastStandalone(checkEl, type, idx, list) {
+function showUndoToastLongterm(idx, list) {
   const existing = document.getElementById('undo-toast');
   if(existing) existing.remove();
   const toast = document.createElement('div');
@@ -1731,66 +1922,22 @@ function showUndoToastStandalone(checkEl, type, idx, list) {
     clearTimeout(undoTimer);
     toast.remove();
     list[idx].done = false;
-    saveStandaloneTodos(type, list);
+    saveStandaloneTodos('longterm', list);
     renderTodoPage();
   });
 }
 
-// ── 添加独立待办条目 ──
+// ── 添加独立待办（兼容旧调用） ──
 function addStandaloneTodo(type) {
-  const list = loadStandaloneTodos(type);
-  const text = prompt(type === 'tomorrow' ? '添加明日待办：' : '添加长期待办：');
+  const list = loadStandaloneTodos('longterm');
+  const text = prompt('添加待办：');
   if(!text || !text.trim()) return;
   list.push({ text: text.trim(), done: false });
-  saveStandaloneTodos(type, list);
+  saveStandaloneTodos('longterm', list);
   renderTodoPage();
 }
 
-// ── 事项待办跟进：在 localStorage 中直接标记完成 ──
-function toggleTodoPage(el, storageKey, evText, todoText) {
-  if(el.classList.contains('done')) {
-    // 撤销：写回 localStorage
-    updateTodoDone(storageKey, evText, todoText, false);
-    el.classList.remove('done');
-    el.nextElementSibling.classList.remove('striked');
-    saveToday();
-    return;
-  }
-  if(_todoPending.has(el)) {
-    clearTimeout(_todoPending.get(el));
-    _todoPending.delete(el);
-    el.classList.remove('pending');
-    el.classList.add('done');
-    el.nextElementSibling.classList.add('striked');
-    // 写回 localStorage
-    updateTodoDone(storageKey, evText, todoText, true);
-    saveToday();
-    showUndoToast(el);
-  } else {
-    el.classList.add('pending');
-    showToast('再次点击确认完成');
-    const timer = setTimeout(() => {
-      el.classList.remove('pending');
-      _todoPending.delete(el);
-    }, 2500);
-    _todoPending.set(el, timer);
-  }
-}
 
-// 将指定待办的 done 状态写回 localStorage
-function updateTodoDone(storageKey, evText, todoText, doneVal) {
-  const raw = localStorage.getItem(storageKey);
-  if(!raw) return;
-  const d = JSON.parse(raw);
-  (d.events||[]).forEach(ev => {
-    if(ev.text === evText) {
-      (ev.todos||[]).forEach(t => {
-        if(t.text === todoText) t.done = doneVal;
-      });
-    }
-  });
-  localStorage.setItem(storageKey, JSON.stringify(d));
-}
 
 function formatDateShort(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
