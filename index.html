@@ -306,20 +306,21 @@ body {
   background: var(--card);
   border-bottom: 1px solid var(--line);
   padding: 14px 20px;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: flex-start; gap: 12px;
 }
 .todo-page-check {
   width: 20px; height: 20px; border-radius: 50%;
   border: 1.5px solid var(--blue); flex-shrink: 0;
   cursor: pointer; display: flex; align-items: center;
   justify-content: center; transition: all 0.18s;
+  margin-top: 1px;
 }
 .todo-page-check.done { background: var(--done); border-color: var(--done); }
 .todo-page-check.done::after { content:''; width:7px; height:7px; border-radius:50%; background:white; }
 .todo-page-check.pending { opacity:0.5; transform:scale(0.9); }
-.todo-page-text { flex:1; font-size:15px; color: var(--text); line-height:1.4; }
+.todo-page-text { flex:1; font-size:15px; color: var(--text); line-height:1.4; word-break: break-word; overflow-wrap: break-word; }
 .todo-page-text.striked { text-decoration: line-through; color: var(--done); }
-.todo-page-delete { font-size:18px; color:#ddd; cursor:pointer; padding:0 4px; flex-shrink:0; line-height:1; }
+.todo-page-delete { font-size:18px; color:#ddd; cursor:pointer; padding:0 4px; flex-shrink:0; line-height:1; margin-top: 1px; }
 .todo-page-delete:active { color:#f66; }
 .todo-add-row {
   background: var(--card); border-bottom: 1px solid var(--line);
