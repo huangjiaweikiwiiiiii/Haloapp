@@ -472,6 +472,19 @@ body {
 .backup-btn-icon.blue  { background: #E8F2FF; color: #3A7CC8; }
 .backup-btn-desc { font-size: 12px; color: var(--sub); font-weight: 400; margin-top: 1px; }
 
+/* ── 批量操作 ── */
+.todo-page-check.sel { background: var(--blue); }
+.todo-page-check.sel::after { content:''; width:7px; height:7px; border-radius:50%; background:#fff; }
+.todo-page-item.sel { background: #F3F8FE; }
+.batch-bar { position: fixed; left: 0; right: 0; bottom: 70px; z-index: 30; background: #fff;
+  border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.batch-count { font-size: 13px; color: var(--sub); margin-right: auto; }
+.batch-bar .bb { font-size: 13px; padding: 7px 13px; border-radius: 16px; border: 1px solid var(--line);
+  cursor: pointer; background: #fff; color: var(--text); }
+.batch-bar .bb.primary { background: #1A1A1A; color: #fff; border-color: #1A1A1A; }
+.batch-bar .bb.danger { color: #D9534F; border-color: #F0C4C2; }
+
 /* ── 电脑端布局 ── */
 @media (min-width: 900px) {
   body { padding-left: 190px; }
@@ -485,6 +498,7 @@ body {
   .topbar { padding-top: 28px; }
   .main { padding-bottom: 60px; }
   .toast { left: calc(50% + 95px); }
+  .batch-bar { left: 190px; bottom: 0; }
 }
 
 /* ── 页面切换 ── */
@@ -756,6 +770,7 @@ body {
       <div class="topbar-sub" id="todo-page-sub">加载中…</div>
     </div>
     <div class="topbar-right">
+      <div class="topbar-btn" id="batch-btn">批量</div>
       <div class="topbar-btn" id="remind-setting-btn">提醒</div>
     </div>
   </div>
@@ -801,6 +816,9 @@ body {
 <div class="toast" id="toast"></div>
 
 <script>
+var _batchMode = false;
+var _batchSel = new Set();
+var _batchAllTexts = [];
 // ── 初始化日期 ──
 function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 const now = new Date();
@@ -1181,25 +1199,8 @@ function saveToday() {
   }));
   if(_ch0) saveStandaloneTodos('longterm', _lng0);
 
-  // 把标记为「明日」「长期」的待办同步写入独立存储（去重）
-  const tomorrowList = loadStandaloneTodos('tomorrow');
-  const longtermList = loadStandaloneTodos('longterm');
-  let changed = false;
-  data.events.forEach(ev => {
-    (ev.todos || []).forEach(t => {
-      if(t.todoType === 'tomorrow') {
-        const exists = tomorrowList.some(x => x.text === t.text);
-        if(!exists) { tomorrowList.push({ text: t.text, done: t.done }); changed = true; }
-      } else if(t.todoType === 'longterm') {
-        const exists = longtermList.some(x => x.text === t.text);
-        if(!exists) { longtermList.push({ text: t.text, done: t.done }); changed = true; }
-      }
-    });
-  });
-  if(changed) {
-    saveStandaloneTodos('tomorrow', tomorrowList);
-    saveStandaloneTodos('longterm', longtermList);
-  }
+  // 注意：不再把事项里的待办逐次追加到长期待办（会把没写完的中间状态也存下来）；
+  // 待办页直接从各天事项汇总，长期待办只保存手动添加的条目。
 
   renderHistory();
 }
@@ -1674,6 +1675,12 @@ document.getElementById('remind-setting-btn').addEventListener('click', function
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
+document.getElementById('batch-btn').addEventListener('click', function() {
+  _batchMode = !_batchMode;
+  _batchSel.clear();
+  renderTodoPage();
+});
+
 // ── 待办存取（长期待办带修改时间 at，删除记入 todos_deleted，用于多设备同步）──
 function loadStandaloneTodos(type) {
   try { const raw = localStorage.getItem('todos_' + type); return raw ? JSON.parse(raw) : []; } catch(e) { return []; }
@@ -1765,7 +1772,7 @@ function collectTodoState() {
     const d = JSON.parse(localStorage.getItem(k));
     const ds = new Date(dateStr + 'T00:00:00').getTime();
     (d.events || []).forEach(ev => (ev.todos || []).forEach(t => {
-      if(t.text) hist.push({ text: t.text, done: !!t.done, dateStr, ds, evText: ev.text });
+      if(t.text) hist.push({ text: t.text, done: !!t.done, dateStr, ds, evText: ev.text, todoType: t.todoType || 'tomorrow' });
     }));
   });
   const lng = loadStandaloneTodos('longterm').filter(i => i.text);
@@ -1781,12 +1788,12 @@ function collectTodoState() {
     if(h.done) { addDone(h.text, formatDateShort(h.dateStr)); return; }
     const cleared = (doneHist[h.text] !== undefined && doneHist[h.text] >= h.ds) || doneLng[h.text];
     if(cleared) addDone(h.text, formatDateShort(h.dateStr));
-    else if(!pendingEv.has(h.text)) pendingEv.set(h.text, { text: h.text, from: formatDateShort(h.dateStr) });
+    else if(!pendingEv.has(h.text) && !pendingLng.has(h.text)) (h.todoType === 'longterm' ? pendingLng : pendingEv).set(h.text, { text: h.text, from: formatDateShort(h.dateStr) });
   });
   lng.forEach(i => {
     if(i.done) { addDone(i.text, ''); return; }
     if(doneHist[i.text] !== undefined) { addDone(i.text, ''); return; }
-    if(!pendingEv.has(i.text)) pendingLng.set(i.text, { text: i.text, from: '' });
+    if(!pendingEv.has(i.text) && !pendingLng.has(i.text)) pendingLng.set(i.text, { text: i.text, from: '' });
   });
   const done = [...doneMap.values()].filter(x => !pendingEv.has(x.text) && !pendingLng.has(x.text));
   return { pendingEv, pendingLng, done };
@@ -1794,19 +1801,19 @@ function collectTodoState() {
 
 var _doneOpen = false;
 
-function showUndoToastTodo(text) {
+function showUndoToastTodo(text, msg) {
   const existing = document.getElementById('undo-toast');
   if(existing) existing.remove();
   const toast = document.createElement('div');
   toast.id = 'undo-toast';
   toast.style.cssText = 'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#333;color:#fff;border-radius:20px;padding:10px 18px;font-size:13px;display:flex;align-items:center;gap:12px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.25);';
-  toast.innerHTML = '<span>已完成，已移到「已完成待办」</span><button id="undo-btn" style="background:#fff;color:#333;border:none;border-radius:10px;padding:3px 10px;font-size:12px;cursor:pointer;">撤销</button>';
+  toast.innerHTML = '<span>' + (msg || '已完成，已移到「已完成待办」') + '</span><button id="undo-btn" style="background:#fff;color:#333;border:none;border-radius:10px;padding:3px 10px;font-size:12px;cursor:pointer;">撤销</button>';
   document.body.appendChild(toast);
-  const undoTimer = setTimeout(() => toast.remove(), 3500);
+  const undoTimer = setTimeout(() => toast.remove(), 5000);
   document.getElementById('undo-btn').addEventListener('click', () => {
     clearTimeout(undoTimer);
     toast.remove();
-    setTodoDoneEverywhere(text, false);
+    if(Array.isArray(text)) batchTodoAction(text, 'undone'); else setTodoDoneEverywhere(text, false);
   });
 }
 
@@ -1819,6 +1826,17 @@ function buildTodoRow(item, isDone) {
     ${item.from ? `<span class="todo-page-from">${item.from}</span>` : ''}
     <div class="todo-page-delete">×</div>`;
   const check = row.querySelector('.todo-page-check');
+  if(_batchMode && !isDone) {
+    const paint = () => { const on = _batchSel.has(item.text); row.classList.toggle('sel', on); check.classList.toggle('sel', on); };
+    paint();
+    row.querySelector('.todo-page-delete').style.display = 'none';
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', () => {
+      if(_batchSel.has(item.text)) _batchSel.delete(item.text); else _batchSel.add(item.text);
+      paint(); updateBatchBar();
+    });
+    return row;
+  }
   check.addEventListener('click', () => {
     if(isDone) { setTodoDoneEverywhere(item.text, false); return; }
     if(_todoPending.has(check)) {
@@ -1871,6 +1889,11 @@ function renderTodoPage() {
     totalPending > 0 ? `${totalPending} 项待完成` : '全部完成';
   const navTodos = document.getElementById('nav-todos');
   navTodos.innerHTML = totalPending > 0 ? `待办 <span class="nav-badge">${totalPending}</span>` : '待办';
+  _batchAllTexts = [...st.pendingEv.keys(), ...st.pendingLng.keys()];
+  [..._batchSel].forEach(t => { if(!_batchAllTexts.includes(t)) _batchSel.delete(t); });
+  const _oldBar = document.getElementById('batch-bar'); if(_oldBar) _oldBar.remove();
+  const _bb = document.getElementById('batch-btn'); if(_bb) _bb.textContent = _batchMode ? '退出批量' : '批量';
+  content.style.paddingBottom = _batchMode ? '180px' : '100px';
 
   // 分区1：今日待办（来自各天事项）
   content.appendChild(buildSectionHeader('今日待办', `${st.pendingEv.size} 项`));
@@ -1931,6 +1954,99 @@ function renderTodoPage() {
     toggle.querySelector('.todo-done-arrow').classList.toggle('open', _doneOpen);
     doneList.classList.toggle('open', _doneOpen);
   });
+  if(_batchMode) renderBatchBar();
+}
+
+// ── 批量操作 ──
+// action: done 完成 / undone 撤销完成 / delete 删除（长期待办 + 所有日期事项里的同名待办，一次遍历）
+function batchTodoAction(texts, action) {
+  const set = new Set(texts);
+  if(!set.size) return;
+  saveToday();
+  let lng = loadStandaloneTodos('longterm');
+  if(action === 'delete') lng = lng.filter(i => !set.has(i.text));
+  else lng.forEach(i => { if(set.has(i.text)) i.done = (action === 'done'); });
+  saveStandaloneTodos('longterm', lng);
+  allDayKeys().forEach(k => {
+    const d = JSON.parse(localStorage.getItem(k)); let mod = false;
+    (d.events || []).forEach(ev => {
+      if(action === 'delete') {
+        const n = (ev.todos || []).length;
+        ev.todos = (ev.todos || []).filter(t => !set.has(t.text));
+        if(ev.todos.length !== n) mod = true;
+      } else {
+        (ev.todos || []).forEach(t => {
+          if(set.has(t.text) && !!t.done !== (action === 'done')) { t.done = (action === 'done'); mod = true; }
+        });
+      }
+    });
+    if(mod) saveDayRecord(k, d);
+  });
+  reloadActiveDay();
+  renderHistory();
+  renderTodoPage();
+}
+
+// 找出疑似"没写完的中间版本"：同名前缀关系，或前缀相同部分较长，保留最长的那条
+function findFragmentTodos(texts) {
+  const arr = [...new Set(texts.map(t => t.trim()).filter(Boolean))];
+  const cp = (a, b) => { let i = 0; const n = Math.min(a.length, b.length); while(i < n && a[i] === b[i]) i++; return i; };
+  const res = new Set();
+  arr.forEach(a => {
+    if(a.length < 2) return;
+    arr.forEach(b => {
+      if(b.length <= a.length) return;
+      const c = cp(a, b);
+      if(c === a.length || c >= Math.max(6, a.length * 0.5)) res.add(a);
+    });
+  });
+  return res;
+}
+
+function updateBatchBar() {
+  const c = document.getElementById('batch-count');
+  if(c) c.textContent = '已选 ' + _batchSel.size + ' / ' + _batchAllTexts.length;
+}
+
+function renderBatchBar() {
+  const page = document.getElementById('page-todos');
+  const old = document.getElementById('batch-bar'); if(old) old.remove();
+  const bar = document.createElement('div');
+  bar.id = 'batch-bar'; bar.className = 'batch-bar';
+  bar.innerHTML = '<span class="batch-count" id="batch-count"></span>' +
+    '<span class="bb" data-act="all">全选</span>' +
+    '<span class="bb" data-act="frag">选出残缺项</span>' +
+    '<span class="bb primary" data-act="done">完成所选</span>' +
+    '<span class="bb danger" data-act="del">删除所选</span>';
+  page.appendChild(bar);
+  bar.addEventListener('click', e => {
+    const act = e.target.dataset ? e.target.dataset.act : '';
+    if(!act) return;
+    if(act === 'all') {
+      if(_batchSel.size >= _batchAllTexts.length) _batchSel.clear(); else _batchAllTexts.forEach(t => _batchSel.add(t));
+      renderTodoPage(); return;
+    }
+    if(act === 'frag') {
+      const f = findFragmentTodos(_batchAllTexts);
+      _batchSel.clear(); f.forEach(t => _batchSel.add(t));
+      renderTodoPage();
+      showToast(f.size ? '选出 ' + f.size + ' 项疑似没写完的残缺待办，请检查后再删除' : '没有发现残缺待办');
+      return;
+    }
+    const list = [..._batchSel];
+    if(!list.length) { showToast('请先点选待办'); return; }
+    if(act === 'done') {
+      _batchSel.clear();
+      batchTodoAction(list, 'done');
+      showUndoToastTodo(list, '已完成 ' + list.length + ' 项，已移到「已完成待办」');
+    } else if(act === 'del') {
+      if(confirm('删除所选 ' + list.length + ' 项待办？\n（历史事项里的同名待办也会一并删除，无法撤销）')) {
+        _batchSel.clear();
+        batchTodoAction(list, 'delete');
+      }
+    }
+  });
+  updateBatchBar();
 }
 
 function buildSectionHeader(label, count) {
