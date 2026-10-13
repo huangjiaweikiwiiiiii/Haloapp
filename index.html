@@ -476,9 +476,15 @@ body {
 .todo-page-check.sel { background: var(--blue); }
 .todo-page-check.sel::after { content:''; width:7px; height:7px; border-radius:50%; background:#fff; }
 .todo-page-item.sel { background: #F3F8FE; }
-.batch-bar { position: fixed; left: 0; right: 0; bottom: 70px; z-index: 30; background: #fff;
-  border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
-  padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.batch-bar { position: fixed; left: 0; right: 0; bottom: 70px; z-index: 90; background: #fff;
+  border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.batch-bar .bb-row { display: flex; gap: 8px; align-items: center; }
+.batch-bar .bb-main { flex: 1; text-align: center; font-size: 15px; font-weight: 600; padding: 12px 0;
+  border-radius: 12px; cursor: pointer; border: 1px solid transparent; }
+.batch-bar .bb-main.done { background: #1A1A1A; color: #fff; }
+.batch-bar .bb-main.del { background: #FDECEB; color: #D9534F; border-color: #F0C4C2; }
+.batch-bar .bb-main.off { opacity: 0.35; }
 .batch-count { font-size: 13px; color: var(--sub); margin-right: auto; }
 .batch-bar .bb { font-size: 13px; padding: 7px 13px; border-radius: 16px; border: 1px solid var(--line);
   cursor: pointer; background: #fff; color: var(--text); }
@@ -1893,7 +1899,7 @@ function renderTodoPage() {
   [..._batchSel].forEach(t => { if(!_batchAllTexts.includes(t)) _batchSel.delete(t); });
   const _oldBar = document.getElementById('batch-bar'); if(_oldBar) _oldBar.remove();
   const _bb = document.getElementById('batch-btn'); if(_bb) _bb.textContent = _batchMode ? '退出批量' : '批量';
-  content.style.paddingBottom = _batchMode ? '180px' : '100px';
+  content.style.paddingBottom = _batchMode ? '240px' : '100px';
 
   // 分区1：今日待办（来自各天事项）
   content.appendChild(buildSectionHeader('今日待办', `${st.pendingEv.size} 项`));
@@ -2006,6 +2012,10 @@ function findFragmentTodos(texts) {
 function updateBatchBar() {
   const c = document.getElementById('batch-count');
   if(c) c.textContent = '已选 ' + _batchSel.size + ' / ' + _batchAllTexts.length;
+  const n = _batchSel.size;
+  const d = document.getElementById('bb-done'), x = document.getElementById('bb-del');
+  if(d) { d.textContent = n ? '批量完成 (' + n + ')' : '批量完成'; d.classList.toggle('off', !n); }
+  if(x) { x.textContent = n ? '批量删除 (' + n + ')' : '批量删除'; x.classList.toggle('off', !n); }
 }
 
 function renderBatchBar() {
@@ -2013,11 +2023,12 @@ function renderBatchBar() {
   const old = document.getElementById('batch-bar'); if(old) old.remove();
   const bar = document.createElement('div');
   bar.id = 'batch-bar'; bar.className = 'batch-bar';
-  bar.innerHTML = '<span class="batch-count" id="batch-count"></span>' +
+  bar.innerHTML = '<div class="bb-row"><span class="batch-count" id="batch-count"></span>' +
     '<span class="bb" data-act="all">全选</span>' +
-    '<span class="bb" data-act="frag">选出残缺项</span>' +
-    '<span class="bb primary" data-act="done">完成所选</span>' +
-    '<span class="bb danger" data-act="del">删除所选</span>';
+    '<span class="bb" data-act="frag">选出残缺项</span></div>' +
+    '<div class="bb-row">' +
+    '<span class="bb-main done off" id="bb-done" data-act="done">批量完成</span>' +
+    '<span class="bb-main del off" id="bb-del" data-act="del">批量删除</span></div>';
   page.appendChild(bar);
   bar.addEventListener('click', e => {
     const act = e.target.dataset ? e.target.dataset.act : '';
@@ -2034,7 +2045,7 @@ function renderBatchBar() {
       return;
     }
     const list = [..._batchSel];
-    if(!list.length) { showToast('请先点选待办'); return; }
+    if(!list.length) { showToast('请先点选要操作的待办'); return; }
     if(act === 'done') {
       _batchSel.clear();
       batchTodoAction(list, 'done');
