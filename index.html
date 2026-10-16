@@ -152,6 +152,7 @@ body {
   padding-bottom: 6px;
 }
 .review-input::placeholder { color: #BBBBBB; }
+.event-block .review-input { min-height: 48px; }
 .review-input:focus { border-bottom-color: var(--sub); outline: none; }
 
 /* 待办区 */
@@ -173,7 +174,7 @@ body {
 .todo-check.done::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: white; }
 .todo-text {
   flex: 1; border: none; outline: none;
-  font-size: 14px; font-family: inherit;
+  font-size: 13px; font-family: inherit;
   color: var(--text); background: transparent;
 }
 .todo-text::placeholder { color: var(--sub); }
@@ -2179,14 +2180,32 @@ function restoreRemind() {
 }
 
 // ── 工具函数 ──
+var _taObserver = null;
 function autoResize(el) {
   el.style.height = 'auto';
-  // 所在页面被隐藏时 scrollHeight 为 0，若写入会把文本框锁成一行高（手机上表现为内容被折叠）
-  if(el.scrollHeight > 0) el.style.height = el.scrollHeight + 'px';
+  // 所在页面被隐藏时 scrollHeight 为 0：不写入高度，并登记监听，等它真正显示出来再撑开
+  if(el.scrollHeight > 0) {
+    // border-box 下需把上下边框也算进去，否则最后一行会被裁掉
+    el.style.height = (el.scrollHeight + (el.offsetHeight - el.clientHeight)) + 'px';
+    return;
+  }
+  if('IntersectionObserver' in window) {
+    if(!_taObserver) {
+      _taObserver = new IntersectionObserver(entries => {
+        entries.forEach(en => {
+          if(en.isIntersecting) { _taObserver.unobserve(en.target); autoResize(en.target); }
+        });
+      });
+    }
+    _taObserver.observe(el);
+  }
 }
 
 // 重新计算页面内所有文本框高度（切页 / 展开后调用）
 window.addEventListener('resize', () => resizeAllTextareas(document));
+window.addEventListener('load', () => setTimeout(() => resizeAllTextareas(document), 200));
+window.addEventListener('pageshow', () => setTimeout(() => resizeAllTextareas(document), 100));
+document.addEventListener('visibilitychange', () => { if(!document.hidden) resizeAllTextareas(document); });
 function resizeAllTextareas(root) {
   (root || document).querySelectorAll('textarea').forEach(ta => {
     if(ta.offsetParent !== null) autoResize(ta);
