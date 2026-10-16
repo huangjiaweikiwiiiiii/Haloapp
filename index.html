@@ -153,6 +153,7 @@ body {
 }
 .review-input::placeholder { color: #BBBBBB; }
 .event-block .review-input { min-height: 48px; }
+.event-input, .review-input, .overall-item-input, .reading-item-input { field-sizing: content; }
 .review-input:focus { border-bottom-color: var(--sub); outline: none; }
 
 /* 待办区 */
@@ -767,6 +768,7 @@ body {
     </div>
 
   </div>
+<div style="text-align:center;font-size:11px;color:#CCC;padding:18px 0 8px">版本 2026-10-16 · 输入框自适应 v3</div>
 </div>
 
 <!-- ══════════════ 待办总览页 ══════════════ -->
@@ -2181,7 +2183,9 @@ function restoreRemind() {
 
 // ── 工具函数 ──
 var _taObserver = null;
+var _fieldSizing = (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content'));
 function autoResize(el) {
+  if(_fieldSizing && el.matches('.event-input, .review-input')) { el.style.height = ''; return; }
   el.style.height = 'auto';
   // 所在页面被隐藏时 scrollHeight 为 0：不写入高度，并登记监听，等它真正显示出来再撑开
   if(el.scrollHeight > 0) {
@@ -2206,6 +2210,14 @@ window.addEventListener('resize', () => resizeAllTextareas(document));
 window.addEventListener('load', () => setTimeout(() => resizeAllTextareas(document), 200));
 window.addEventListener('pageshow', () => setTimeout(() => resizeAllTextareas(document), 100));
 document.addEventListener('visibilitychange', () => { if(!document.hidden) resizeAllTextareas(document); });
+// 兜底自检：可见的输入框只要内容比框高（被折叠/截断），就自动撑开；与页面加载时机无关
+setInterval(() => {
+  if(document.hidden) return;
+  document.querySelectorAll('textarea').forEach(ta => {
+    if(ta.offsetParent !== null && ta.scrollHeight > ta.clientHeight + 1) autoResize(ta);
+  });
+}, 700);
+document.addEventListener('focusin', e => { if(e.target.tagName === 'TEXTAREA') autoResize(e.target); });
 function resizeAllTextareas(root) {
   (root || document).querySelectorAll('textarea').forEach(ta => {
     if(ta.offsetParent !== null) autoResize(ta);
