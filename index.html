@@ -1448,6 +1448,7 @@ function renderHistory() {
 function toggleHist(el) {
   const body = el.nextElementSibling;
   body.classList.toggle('open');
+  if(body.classList.contains('open')) requestAnimationFrame(() => resizeAllTextareas(body));
 }
 
 // ── 编辑历史某天 ──
@@ -1635,6 +1636,9 @@ function switchPage(name, el) {
   if(name === 'history') renderHistory();
   if(name === 'todos') renderTodoPage();
   if(name === 'reading') renderReadingPage();
+  // 页面刚显示出来后再按内容重新撑开文本框
+  requestAnimationFrame(() => resizeAllTextareas(document.getElementById('page-' + name)));
+  setTimeout(() => resizeAllTextareas(document.getElementById('page-' + name)), 120);
 }
 
 // ── 渲染读书心得页 ──
@@ -2177,7 +2181,16 @@ function restoreRemind() {
 // ── 工具函数 ──
 function autoResize(el) {
   el.style.height = 'auto';
-  el.style.height = el.scrollHeight + 'px';
+  // 所在页面被隐藏时 scrollHeight 为 0，若写入会把文本框锁成一行高（手机上表现为内容被折叠）
+  if(el.scrollHeight > 0) el.style.height = el.scrollHeight + 'px';
+}
+
+// 重新计算页面内所有文本框高度（切页 / 展开后调用）
+window.addEventListener('resize', () => resizeAllTextareas(document));
+function resizeAllTextareas(root) {
+  (root || document).querySelectorAll('textarea').forEach(ta => {
+    if(ta.offsetParent !== null) autoResize(ta);
+  });
 }
 
 function formatDate(dateStr) {
