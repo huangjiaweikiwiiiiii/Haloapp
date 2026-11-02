@@ -153,13 +153,14 @@ body {
 }
 .review-input::placeholder { color: #BBBBBB; }
 .event-block .review-input { min-height: 48px; }
-.event-input, .review-input, .overall-item-input, .reading-item-input { field-sizing: content; }
+.event-input, .review-input, .overall-item-input, .reading-item-input, .success-item-input { field-sizing: content; }
+.success-section { background: var(--card); border-bottom: 1px solid var(--line); padding: 16px 20px 16px 16px; margin-top: 8px; border-left: 3px solid #E6A050; }
 .review-input:focus { border-bottom-color: var(--sub); outline: none; }
 
 /* 待办区 */
 .todo-area { margin: 10px 0 0 28px; }
 .todo-row {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: flex-start; gap: 10px;
   padding: 6px 0;
   border-top: 1px solid var(--line);
 }
@@ -174,10 +175,14 @@ body {
 .todo-check.done { background: var(--done); border-color: var(--done); }
 .todo-check.done::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: white; }
 .todo-text {
-  flex: 1; border: none; outline: none;
-  font-size: 13px; font-family: inherit;
+  flex: 1; min-width: 0; border: none; outline: none;
+  font-size: 13px; font-family: inherit; line-height: 1.5;
   color: var(--text); background: transparent;
+  resize: none; padding: 0; margin: 0; display: block;
+  min-height: 20px; field-sizing: content;
 }
+.todo-row .todo-check { margin-top: 2px; }
+.todo-row .todo-type-tag { margin-top: 1px; }
 .todo-text::placeholder { color: var(--sub); }
 .todo-text.striked { text-decoration: line-through; color: var(--done); }
 .todo-from-prev {
@@ -573,6 +578,17 @@ body {
 
   <div class="main" id="main-content">
 
+    <!-- 成功日记 -->
+    <div class="success-section" id="success-section">
+      <div class="overall-header" style="color:#C98A3E">成功日记</div>
+      <div style="font-size:12px;color:var(--sub);margin:0 0 10px 0;line-height:1.6">今天做成了什么？再小的事也算：按时起床、完成一件拖着的事、帮到了某个人。</div>
+      <div id="success-list"></div>
+      <div class="add-event-btn" id="add-success-btn" style="margin-top:8px">
+        <span style="font-size:18px;line-height:1">+</span>
+        <span>再记一条成功</span>
+      </div>
+    </div>
+
     <!-- 事项列表 -->
     <div id="event-list"></div>
 
@@ -768,7 +784,7 @@ body {
     </div>
 
   </div>
-<div style="text-align:center;font-size:11px;color:#CCC;padding:18px 0 8px">版本 2026-10-16 · 输入框自适应 v3</div>
+<div style="text-align:center;font-size:11px;color:#CCC;padding:18px 0 8px">版本 2026-11-02 · 待办自动换行 + 成功日记 v5</div>
 </div>
 
 <!-- ══════════════ 待办总览页 ══════════════ -->
@@ -851,7 +867,7 @@ document.getElementById('date-picker').addEventListener('change', function() {
   if(!newDate) return;
   // 先保存当前页面内容到旧日期
   const currentData = collectToday();
-  const hasContent = currentData.events.length > 0 || currentData.overallItems.length > 0;
+  const hasContent = currentData.events.length > 0 || currentData.overallItems.length > 0 || currentData.successItems.length > 0;
   if(hasContent) {
     saveDayRecord('review_' + activeKey, {...currentData, date: activeKey});
   }
@@ -944,7 +960,7 @@ function createEventBlock(data) {
       if(tagEl) setTag(tagEl, tag);
     }
     if(data.todos) {
-      data.todos.forEach(t => addTodo(id, t));
+      data.todos.forEach(t => addTodo(id, t, block.querySelector('.todo-area')));
     }
   }
 
@@ -970,8 +986,9 @@ function setTag(el, type) {
 const _todoTypes = ['tomorrow', 'longterm'];
 const _todoTypeLabels = { tomorrow: '明日', longterm: '长期' };
 
-function addTodo(blockId, data) {
-  const area = document.getElementById('todos-' + blockId);
+function addTodo(blockId, data, areaEl) {
+  // 事项块还没挂到页面时(加载已有数据)，直接用传入的容器，避免待办丢失
+  const area = areaEl || document.getElementById('todos-' + blockId);
   if(!area) return;
   const row = document.createElement('div');
   row.className = 'todo-row';
@@ -980,8 +997,8 @@ function addTodo(blockId, data) {
   row.innerHTML = `
     <div class="todo-check${data && data.done ? ' done' : ''}"
       onclick="toggleTodo(this)"></div>
-    <input class="todo-text${data && data.done ? ' striked' : ''}"
-      placeholder="待办事项…" value="${data ? escHtml(data.text||'') : ''}">
+    <textarea class="todo-text${data && data.done ? ' striked' : ''}" rows="1"
+      placeholder="待办事项…" oninput="autoResize(this)">${data ? escHtml(data.text||'') : ''}</textarea>
     ${isPrev ? `<span class="todo-from-prev">${data.fromDate||'昨天'}</span>` : ''}
     <span class="todo-type-tag" data-type="${todoType}">${_todoTypeLabels[todoType]}</span>
     <div class="todo-delete" onclick="this.closest('.todo-row').remove()">×</div>`;
@@ -994,7 +1011,12 @@ function addTodo(blockId, data) {
     tag.textContent = _todoTypeLabels[next];
   });
   area.appendChild(row);
-  if(!data) row.querySelector('input').focus();
+  const _tta = row.querySelector('.todo-text');
+  // 回车只收起键盘，不插入换行
+  _tta.addEventListener('keydown', e => { if(e.key === 'Enter') { e.preventDefault(); _tta.blur(); } });
+  autoResize(_tta);
+  setTimeout(() => autoResize(_tta), 0);
+  if(!data) _tta.focus();
 }
 
 // ── 待办双击确认 ──
@@ -1089,6 +1111,28 @@ document.getElementById('add-reading-btn').addEventListener('click', function() 
   createReadingItem('');
 });
 
+// ── 成功日记 ──
+function createSuccessItem(text, focus) {
+  const item = document.createElement('div');
+  item.className = 'overall-item';
+  item.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;';
+  item.innerHTML = `
+    <textarea class="success-item-input review-input" placeholder="今天我做成了…（越具体越好）" rows="1"
+      oninput="autoResize(this)" style="flex:1;"></textarea>
+    <div onclick="this.closest('.overall-item').remove()" style="font-size:18px;color:#bbb;cursor:pointer;line-height:1.4;padding:0 2px;flex-shrink:0;">×</div>`;
+  const ta = item.querySelector('textarea');
+  if(text) { ta.value = text; }
+  document.getElementById('success-list').appendChild(item);
+  setTimeout(() => autoResize(ta), 0);
+  if(focus) ta.focus();
+}
+function ensureSuccessRow() {
+  if(!document.getElementById('success-list').children.length) createSuccessItem('', false);
+}
+document.getElementById('add-success-btn').addEventListener('click', function() {
+  createSuccessItem('', true);
+});
+
 // ── 自动保存 ──
 let _autoSaveTimer = null;
 function scheduleAutoSave() {
@@ -1145,7 +1189,7 @@ function loadCarryOver() {
     item.className = 'carry-item';
     item.innerHTML = `
       <div class="todo-check" onclick="toggleTodo(this)"></div>
-      <input class="todo-text" value="${escHtml(t.text)}" readonly>
+      <textarea class="todo-text" rows="1" readonly oninput="autoResize(this)">${escHtml(t.text)}</textarea>
       <span class="todo-from-prev">${t.fromDate}</span>`;
     list.appendChild(item);
   });
@@ -1194,7 +1238,13 @@ function collectToday() {
     if(t) readingItems.push(t);
   });
 
-  return { date: activeKey, mood, moodLabel, events, overallItems, readingItems };
+  const successItems = [];
+  document.querySelectorAll('.success-item-input').forEach(inp => {
+    const t = inp.value.trim();
+    if(t) successItems.push(t);
+  });
+
+  return { date: activeKey, mood, moodLabel, events, overallItems, readingItems, successItems };
 }
 
 function saveToday() {
@@ -1223,7 +1273,10 @@ function loadDay(key) {
 // ── 加载今天已有数据 ──
 function loadTodayData() {
   const data = loadDay(activeKey);
-  if(!data) return;
+  // 切换日期时先清掉上一天的成功日记/读书心得，避免串到新日期
+  document.getElementById('success-list').innerHTML = '';
+  document.getElementById('reading-list').innerHTML = '';
+  if(!data) { ensureSuccessRow(); return; }
   const list = document.getElementById('event-list');
   list.innerHTML = '';
   eventCount = 0;
@@ -1243,10 +1296,12 @@ function loadTodayData() {
   const readingList = document.getElementById('reading-list');
   readingList.innerHTML = '';
   (data.readingItems || []).forEach(text => createReadingItem(text));
+  (data.successItems || []).forEach(text => createSuccessItem(text, false));
+  ensureSuccessRow();
 
   // 全部加载完后统一触发 resize，确保多行内容完整展开
   setTimeout(() => {
-    document.querySelectorAll('#main-content textarea, #overall-list textarea, #reading-list textarea').forEach(ta => autoResize(ta));
+    document.querySelectorAll('#main-content textarea, #overall-list textarea, #reading-list textarea, #success-list textarea').forEach(ta => autoResize(ta));
   }, 50);
 }
 
@@ -1292,6 +1347,13 @@ function renderHistory() {
     // 渲染只读视图
     function renderReadView(data) {
       body.innerHTML = '';
+      if(data.successItems && data.successItems.length) {
+        const sEl = document.createElement('div');
+        sEl.style.cssText = 'padding:4px 0 10px;font-size:13px;color:#555;line-height:1.7;';
+        sEl.innerHTML = `<div style="font-size:11px;color:#C98A3E;margin-bottom:4px">成功日记</div>` +
+          data.successItems.map((t,i) => `<div style="margin-bottom:3px">${data.successItems.length>1?`${i+1}. `:''}${escHtml(t)}</div>`).join('');
+        body.appendChild(sEl);
+      }
       (data.events || []).forEach(ev => {
         const item = document.createElement('div');
         item.className = 'hist-event-item';
@@ -1345,6 +1407,27 @@ function renderHistory() {
         moodRow.appendChild(btn);
       });
       body.appendChild(moodRow);
+
+      // 成功日记编辑
+      const sLabel = document.createElement('div');
+      sLabel.style.cssText = 'font-size:11px;color:#C98A3E;margin:4px 0 6px;';
+      sLabel.textContent = '成功日记';
+      body.appendChild(sLabel);
+      const successWrap = document.createElement('div');
+      successWrap.className = 'hist-edit-success';
+      const _sItems = (data.successItems && data.successItems.length) ? data.successItems : [''];
+      _sItems.forEach(t => {
+        const ta = document.createElement('textarea');
+        ta.className = 'hist-edit-success-item';
+        ta.rows = 1;
+        ta.value = t;
+        ta.placeholder = '今天做成了…';
+        ta.style.cssText = 'width:100%;border:none;outline:none;font-size:13px;font-family:inherit;color:#333;background:transparent;resize:none;line-height:1.6;border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:6px;';
+        ta.setAttribute('oninput','autoResize(this)');
+        successWrap.appendChild(ta);
+        setTimeout(() => autoResize(ta), 0);
+      });
+      body.appendChild(successWrap);
 
       // 事项编辑区
       const evSection = document.createElement('div');
@@ -1425,7 +1508,8 @@ function renderHistory() {
         });
         const newOverall = [...body.querySelectorAll('.hist-edit-overall-item')].map(ta => ta.value.trim()).filter(Boolean);
         const newReading = [...body.querySelectorAll('.hist-edit-reading-item')].map(ta => ta.value.trim()).filter(Boolean);
-        const newData = { ...data, mood: newMood, moodLabel: moodLabels[newMood], events: newEvents, overallItems: newOverall, readingItems: newReading };
+        const newSuccess = [...body.querySelectorAll('.hist-edit-success-item')].map(ta => ta.value.trim()).filter(Boolean);
+        const newData = { ...data, mood: newMood, moodLabel: moodLabels[newMood], events: newEvents, overallItems: newOverall, readingItems: newReading, successItems: newSuccess };
         saveDayRecord(k, newData);
         showToast('已保存');
         renderReadView(newData);
@@ -1521,6 +1605,7 @@ function doExport(range) {
   selected.forEach(k => {
     const d = JSON.parse(localStorage.getItem(k));
     text += `## ${formatDate(d.date)}  状态：${d.moodLabel || moodMap[d.mood] || '不错'}\n\n`;
+    (d.successItems || []).forEach((t,i) => { text += `成功日记${(d.successItems||[]).length>1?' '+(i+1):''}：${t}\n`; });
     (d.events || []).forEach((ev, i) => {
       text += `${i+1}. ${ev.text}`;
       if(ev.tag) text += `  [${ev.tag}]`;
@@ -1572,6 +1657,7 @@ function buildBackupText() {
   keys.forEach(k => {
     const d = JSON.parse(localStorage.getItem(k));
     text += `【${formatDate(d.date)}】状态：${d.moodLabel || moodMap[d.mood] || '不错'}\n`;
+    (d.successItems || []).forEach((t,i) => { text += `成功日记${(d.successItems||[]).length>1?' '+(i+1):''}：${t}\n`; });
     (d.events || []).forEach((ev, i) => {
       text += `${i+1}. ${ev.text}`;
       if(ev.tag) text += ` [${ev.tag}]`;
@@ -2084,7 +2170,7 @@ function buildEmptyHint(text) {
 // ── 单日记录保存：内容变化才更新修改时间；空白日不新建 ──
 function stripTs(o) { const c = Object.assign({}, o); delete c.updatedAt; return JSON.stringify(c); }
 function isEmptyDay(d) {
-  return !(d.events && d.events.length) && !(d.overallItems && d.overallItems.length) && !(d.readingItems && d.readingItems.length);
+  return !(d.events && d.events.length) && !(d.overallItems && d.overallItems.length) && !(d.readingItems && d.readingItems.length) && !(d.successItems && d.successItems.length);
 }
 function saveDayRecord(key, data) {
   const raw = localStorage.getItem(key);
@@ -2184,7 +2270,27 @@ function restoreRemind() {
 // ── 工具函数 ──
 var _taObserver = null;
 var _fieldSizing = (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content'));
+// 保底：不依赖浏览器测量，按文字长度估算需要几行，直接写入最小高度，保证长文字不会被压成一行
+function ensureMinHeight(el) {
+  var cs = getComputedStyle(el);
+  var fs = parseFloat(cs.fontSize) || 14;
+  var lh = parseFloat(cs.lineHeight); if(!lh || isNaN(lh)) lh = fs * 1.6;
+  var w = el.clientWidth || el.getBoundingClientRect().width;
+  if(!w) return;
+  var usable = Math.max(w - 4, fs * 4);
+  var lines = 0;
+  String(el.value || '').split('\n').forEach(function(para) {
+    var pw = 0;
+    for(var i = 0; i < para.length; i++) pw += (para.charCodeAt(i) > 255 ? fs : fs * 0.56);
+    lines += Math.max(1, Math.ceil(pw / usable));
+  });
+  var base = el.classList.contains('review-input') && el.closest('.event-block') ? 2 : 1;
+  lines = Math.max(lines, base);
+  var padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  el.style.minHeight = Math.ceil(lines * lh + padV) + 'px';
+}
 function autoResize(el) {
+  ensureMinHeight(el);
   if(_fieldSizing && el.matches('.event-input, .review-input')) { el.style.height = ''; return; }
   el.style.height = 'auto';
   // 所在页面被隐藏时 scrollHeight 为 0：不写入高度，并登记监听，等它真正显示出来再撑开
@@ -2214,7 +2320,9 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden) resiz
 setInterval(() => {
   if(document.hidden) return;
   document.querySelectorAll('textarea').forEach(ta => {
-    if(ta.offsetParent !== null && ta.scrollHeight > ta.clientHeight + 1) autoResize(ta);
+    if(ta.offsetParent === null) return;
+    ensureMinHeight(ta);
+    if(ta.scrollHeight > ta.clientHeight + 1) autoResize(ta);
   });
 }, 700);
 document.addEventListener('focusin', e => { if(e.target.tagName === 'TEXTAREA') autoResize(e.target); });
