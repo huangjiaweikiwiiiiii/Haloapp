@@ -518,6 +518,42 @@ body {
 .page { display: none; }
 .page.active { display: block; }
 
+/* ── 成功库 ── */
+.sv-tabs { display: flex; gap: 22px; padding: 12px 20px 0; border-bottom: 1px solid var(--line); background: var(--bg); }
+.sv-tab { font-size: 14px; color: var(--sub); padding: 8px 2px 10px; cursor: pointer; border-bottom: 2px solid transparent; }
+.sv-tab.active { color: #1A1A1A; font-weight: 600; border-bottom-color: #E6A050; }
+.sv-pane { padding: 14px 16px 0; }
+.sv-add { background: var(--card); border: 1px solid var(--line); border-left: 3px solid #E6A050; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+.sv-add-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.sv-hint { font-size: 12px; color: var(--sub); line-height: 1.6; margin-bottom: 10px; }
+.sv-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.sv-field { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit; background: #FAFAFA; outline: none; color: var(--text); min-width: 0; }
+.sv-field:focus { border-color: #E6A050; background: #fff; }
+textarea.sv-field { width: 100%; box-sizing: border-box; resize: vertical; line-height: 1.6; height: 150px; display: block; margin-bottom: 8px; }
+.sv-btn { font-size: 14px; border-radius: 8px; padding: 9px 14px; cursor: pointer; text-align: center; border: 1px solid var(--line); color: var(--text); background: #fff; user-select: none; }
+.sv-btn.primary { background: #1A1A1A; color: #fff; border-color: #1A1A1A; font-weight: 600; }
+.sv-btn.grow { flex: 1; }
+.sv-month { font-size: 13px; font-weight: 700; color: #C98A3E; margin: 18px 2px 8px; display: flex; justify-content: space-between; align-items: center; }
+.sv-month-act { font-size: 12px; font-weight: 400; color: var(--sub); cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; background: #fff; }
+.sv-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.sv-card.pinned { border-left: 3px solid #E6A050; }
+.sv-card-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; line-height: 1.5; }
+.sv-pin-tag { font-size: 10px; background: #FFF4E6; color: #E6A050; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; font-weight: 600; }
+.sv-body { font-size: 14px; line-height: 1.75; color: #333; word-break: break-word; }
+.sv-body .sv-h { font-weight: 700; margin-top: 8px; color: #1A1A1A; }
+.sv-body b { font-weight: 700; }
+.sv-acts { display: flex; gap: 16px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--sub); }
+.sv-acts span { cursor: pointer; }
+.sv-acts span.del:hover { color: #E05252; }
+.sv-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.sv-chip { font-size: 13px; border: 1px solid var(--line); border-radius: 16px; padding: 5px 13px; color: var(--sub); background: #fff; cursor: pointer; }
+.sv-chip.active { background: #1A1A1A; color: #fff; border-color: #1A1A1A; }
+.sv-day { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
+.sv-day-date { font-size: 11px; color: var(--sub); margin-bottom: 4px; }
+.sv-day-item { font-size: 14px; line-height: 1.7; color: #333; margin-bottom: 2px; word-break: break-word; white-space: pre-wrap; }
+.sv-empty { text-align: center; color: var(--sub); font-size: 13px; line-height: 1.8; padding: 40px 20px; }
+.sv-sum { font-size: 12px; color: var(--sub); margin: 4px 2px 6px; }
+
 /* ── 读书心得页 ── */
 .reading-page-item {
   background: var(--card);
@@ -784,7 +820,7 @@ body {
     </div>
 
   </div>
-<div style="text-align:center;font-size:11px;color:#CCC;padding:18px 0 8px">版本 2026-11-02 · 待办自动换行 + 成功日记 v5</div>
+<div style="text-align:center;font-size:11px;color:#CCC;padding:18px 0 8px">版本 2026-11-02 · 成功库 v6</div>
 </div>
 
 <!-- ══════════════ 待办总览页 ══════════════ -->
@@ -829,13 +865,67 @@ body {
   <div id="reading-page-content" style="padding-bottom:100px"></div>
 </div>
 
+<!-- ══════════════ 成功库页 ══════════════ -->
+<div class="page" id="page-success">
+  <div class="topbar">
+    <div>
+      <div class="topbar-date">成功库</div>
+      <div class="topbar-sub" id="sv-sub">精华沉淀 · 每日成功自动汇总</div>
+    </div>
+  </div>
+  <div class="sv-tabs">
+    <div class="sv-tab active" data-tab="vault">精华</div>
+    <div class="sv-tab" data-tab="log">全部记录</div>
+  </div>
+
+  <div class="sv-pane" id="sv-vault">
+    <div class="sv-add">
+      <div class="sv-add-title">存入 AI 提炼好的内容</div>
+      <div class="sv-hint">把 AI 返回的整理结果整段粘贴进来，选好所属月份，存进精华。内容会随备份和云同步一起保存。</div>
+      <div class="sv-row">
+        <input type="month" id="sv-month" class="sv-field" style="flex:0 0 140px">
+        <input type="text" id="sv-title" class="sv-field" style="flex:1" placeholder="标题（不填则自动生成）">
+      </div>
+      <textarea id="sv-paste" class="sv-field no-auto" placeholder="在这里粘贴 AI 返回的内容…"></textarea>
+      <div class="sv-row" style="margin-bottom:0">
+        <div class="sv-btn" id="sv-paste-btn">从剪贴板粘贴</div>
+        <div class="sv-btn primary grow" id="sv-save-btn">存入精华</div>
+      </div>
+    </div>
+    <div id="sv-cards"></div>
+  </div>
+
+  <div class="sv-pane" id="sv-log" style="display:none">
+    <div class="sv-hint">每天在「今日」页写的成功日记会自动汇总在这里，不用手动导出。选好时间范围，复制给 AI 整理。</div>
+    <div class="sv-chips" id="sv-chips">
+      <div class="sv-chip" data-r="7">近7天</div>
+      <div class="sv-chip active" data-r="30">近30天</div>
+      <div class="sv-chip" data-r="90">近90天</div>
+      <div class="sv-chip" data-r="all">全部</div>
+      <div class="sv-chip" data-r="custom">自选</div>
+    </div>
+    <div class="sv-row" id="sv-custom" style="display:none">
+      <input type="date" id="sv-from" class="sv-field" style="flex:1">
+      <input type="date" id="sv-to" class="sv-field" style="flex:1">
+    </div>
+    <div class="sv-row">
+      <div class="sv-btn primary grow" id="sv-copy-btn">复制给 AI（含整理指令）</div>
+    </div>
+    <div class="sv-hint" style="margin-bottom:0">发给 AI 前，请先检查内容里有没有客户名、单号、货值等敏感信息。</div>
+    <div class="sv-sum" id="sv-sum"></div>
+    <div id="sv-days"></div>
+  </div>
+  <div style="height:110px"></div>
+</div>
+
 <!-- ══════════════ 底部导航 ══════════════ -->
 <div class="bottom-nav">
   <div class="nav-item active" onclick="switchPage('todos', this)" id="nav-todos">待办</div>
   <div class="nav-item" onclick="switchPage('today', this)">今日</div>
   <div class="nav-item" onclick="switchPage('history', this)">历史</div>
   <div class="nav-item" onclick="switchPage('reading', this)">读书</div>
-  <div class="nav-item" onclick="switchPage('export', this)">导出</div>
+  <div class="nav-item" onclick="switchPage('success', this)" id="nav-success">成功库</div>
+  <div class="nav-item" onclick="switchPage('export', this)" id="nav-export">导出</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1713,7 +1803,7 @@ document.getElementById('backup-copy-btn').addEventListener('click', function() 
 
 // ── 历史页导出按钮 ──
 document.getElementById('hist-export-btn').addEventListener('click', function() {
-  switchPage('export', document.querySelectorAll('.nav-item')[4]);
+  switchPage('export', document.getElementById('nav-export'));
 });
 
 // ── 页面切换 ──
@@ -1725,6 +1815,7 @@ function switchPage(name, el) {
   if(name === 'history') renderHistory();
   if(name === 'todos') renderTodoPage();
   if(name === 'reading') renderReadingPage();
+  if(name === 'success') renderSuccessPage();
   // 页面刚显示出来后再按内容重新撑开文本框
   requestAnimationFrame(() => resizeAllTextareas(document.getElementById('page-' + name)));
   setTimeout(() => resizeAllTextareas(document.getElementById('page-' + name)), 120);
@@ -2272,6 +2363,7 @@ var _taObserver = null;
 var _fieldSizing = (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content'));
 // 保底：不依赖浏览器测量，按文字长度估算需要几行，直接写入最小高度，保证长文字不会被压成一行
 function ensureMinHeight(el) {
+  if(el.classList.contains('no-auto')) return;
   var cs = getComputedStyle(el);
   var fs = parseFloat(cs.fontSize) || 14;
   var lh = parseFloat(cs.lineHeight); if(!lh || isNaN(lh)) lh = fs * 1.6;
@@ -2290,6 +2382,7 @@ function ensureMinHeight(el) {
   el.style.minHeight = Math.ceil(lines * lh + padV) + 'px';
 }
 function autoResize(el) {
+  if(el.classList.contains('no-auto')) return;
   ensureMinHeight(el);
   if(_fieldSizing && el.matches('.event-input, .review-input')) { el.style.height = ''; return; }
   el.style.height = 'auto';
@@ -2412,6 +2505,8 @@ function gistCollectAll() {
   }
   result.todos_longterm = loadStandaloneTodos('longterm');
   result.todos_deleted = loadDeleted();
+  result.success_vault = svNorm(svLoad());
+  result.success_vault_deleted = svDeleted();
   return result;
 }
 
@@ -2461,6 +2556,22 @@ function gistMergeData(cloudData) {
     const merged = [...map.values()].filter(i => !(dl[i.text] && dl[i.text] >= (i.at || 0)));
     const str = JSON.stringify(merged);
     if(str !== localStorage.getItem('todos_longterm')) { localStorage.setItem('todos_longterm', str); changed = true; }
+  }
+  // 成功库精华：按 id 合并，修改时间新者胜；删除记录同步
+  if(cloudData.success_vault || cloudData.success_vault_deleted) {
+    const sd = svDeleted(), cdl = cloudData.success_vault_deleted || {};
+    Object.keys(cdl).forEach(id => { if((sd[id] || 0) < cdl[id]) sd[id] = cdl[id]; });
+    localStorage.setItem('success_vault_deleted', JSON.stringify(sd));
+    const vm = new Map();
+    svLoad().forEach(i => vm.set(i.id, i));
+    (cloudData.success_vault || []).forEach(c => {
+      if(!c || !c.id) return;
+      const l = vm.get(c.id);
+      if(!l || (c.at || 0) > (l.at || 0)) vm.set(c.id, c);
+    });
+    const vmerged = svNorm([...vm.values()].filter(i => !(sd[i.id] && sd[i.id] >= (i.at || 0))));
+    const vstr = JSON.stringify(vmerged);
+    if(vstr !== (localStorage.getItem('success_vault') || '[]')) { localStorage.setItem('success_vault', vstr); changed = true; }
   }
   return { changed, activeChanged };
 }
@@ -2534,6 +2645,7 @@ function refreshAfterMerge(activeChanged) {
   if(activeChanged && !editing) reloadActiveDay();
   renderHistory();
   renderTodoPage();
+  if(!_svEditId) renderSuccessPage();
 }
 
 async function gistSyncNow(manual) {
@@ -2613,18 +2725,19 @@ document.getElementById('import-file').addEventListener('change', function() {
         obj.forEach(d => { if(d && d.date) cloud['review_' + d.date] = d; });
       } else if(obj && typeof obj === 'object') {
         Object.keys(obj).forEach(k => {
-          if(k.startsWith('review_') || k === 'todos_longterm' || k === 'todos_deleted') cloud[k] = obj[k];
+          if(k.startsWith('review_') || k === 'todos_longterm' || k === 'todos_deleted' || k === 'success_vault' || k === 'success_vault_deleted') cloud[k] = obj[k];
         });
       }
       const n = Object.keys(cloud).filter(k => k.startsWith('review_')).length;
-      if(!n && !cloud.todos_longterm) { showToast('文件里没有可导入的数据'); inp.value = ''; return; }
+      if(!n && !cloud.todos_longterm && !cloud.success_vault) { showToast('文件里没有可导入的数据'); inp.value = ''; return; }
       gistMergeData(cloud);
       localStorage.removeItem('todos_migrated_v2');   // 让历史事项里的待办重新汇总
       reloadActiveDay();
       renderHistory();
       renderTodoPage();
+      renderSuccessPage();
       scheduleGistPush();
-      showToast(`已导入 ${n} 天记录`);
+      showToast(`已导入 ${n} 天记录` + ((cloud.success_vault || []).length ? `、${cloud.success_vault.length} 张成功精华` : ''));
     } catch(e) {
       showToast('文件格式不对，无法导入');
     }
@@ -2632,6 +2745,267 @@ document.getElementById('import-file').addEventListener('change', function() {
   };
   r.readAsText(f);
 });
+
+// ══════════════ 成功库 ══════════════
+var _svEditId = null;
+var _svRange = '30';
+var _svTab = 'vault';
+
+function svLoad() { try { return JSON.parse(localStorage.getItem('success_vault') || '[]') || []; } catch(e) { return []; } }
+function svDeleted() { try { return JSON.parse(localStorage.getItem('success_vault_deleted') || '{}') || {}; } catch(e) { return {}; } }
+function svNorm(arr) { return arr.slice().sort((a, b) => String(a.id).localeCompare(String(b.id))); }
+function svSave(arr) {
+  localStorage.setItem('success_vault', JSON.stringify(svNorm(arr)));
+  scheduleGistPush();
+}
+function svNewId() { return 'sv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function svMonthLabel(m) { const a = String(m).split('-'); return `${a[0]}年${parseInt(a[1], 10)}月`; }
+function svFmt(t) {
+  return escHtml(t).split('\n').map(l => {
+    const m = l.match(/^#{1,6}\s*(.+)$/);
+    if(m) return '<div class="sv-h">' + m[1] + '</div>';
+    return '<div>' + (l || '&nbsp;') + '</div>';
+  }).join('').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+
+// 收集所有写过成功日记的日期
+function svCollectLog() {
+  const out = [];
+  for(let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if(!k.startsWith('review_')) continue;
+    try {
+      const d = JSON.parse(localStorage.getItem(k));
+      const items = (d.successItems || []).filter(Boolean);
+      if(items.length) out.push({ date: k.slice(7), items });
+    } catch(e) {}
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+function svRangeBounds() {
+  if(_svRange === 'all') return { from: '', to: '9999-12-31' };
+  if(_svRange === 'custom') {
+    return { from: document.getElementById('sv-from').value || '', to: document.getElementById('sv-to').value || '9999-12-31' };
+  }
+  const n = parseInt(_svRange, 10);
+  const f = new Date(); f.setDate(f.getDate() - (n - 1));
+  return { from: ymd(f), to: '9999-12-31' };
+}
+function svFilteredLog() {
+  const b = svRangeBounds();
+  return svCollectLog().filter(e => e.date >= b.from && e.date <= b.to);
+}
+function svDayLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getMonth() + 1}月${d.getDate()}日 周${weekdays[d.getDay()]}`;
+}
+function svBuildCopyText(entries, kind, label) {
+  const total = entries.reduce((n, e) => n + e.items.length, 0);
+  let text = `以下是我的成功日记（${label}，共 ${entries.length} 天、${total} 条）。我记录它的目的，是在需要的时候能看到自己做成过什么，提升自信。\n\n`;
+  const asc = entries.slice().sort((a, b) => a.date.localeCompare(b.date));
+  asc.forEach(e => {
+    text += `## ${e.date} 周${weekdays[new Date(e.date + 'T00:00:00').getDay()]}\n`;
+    e.items.forEach((t, i) => { text += `${e.items.length > 1 ? (i + 1) + '. ' : '- '}${t}\n`; });
+    text += '\n';
+  });
+  text += '---\n';
+  if(kind === 'week') {
+    text += `请帮我整理这段时间的成功日记：
+1. 按【专业能力 / 攻克困难 / 成长进步 / 认可与影响】归类，归不进去的放【其他】；
+2. 挑出最能支撑自信的 3-5 条，优先选有具体结果或数字的，其次是有具体事件的，纯感受的最后；每条说明为什么有分量；
+3. 最后用一句话总结这段时间我做成了什么。
+输出格式：第一行写标题（例如「2026年11月第1周提炼」），之后按上面的结构分段，直接可以存档。`;
+  } else {
+    text += `请帮我做阶段性的成功日记提炼：
+1. 按【专业能力 / 攻克困难 / 成长进步 / 认可与影响】归类，归不进去的放【其他】，并指出【其他】里是否有反复出现、值得新增的类别；
+2. 提炼一份「我的能力证据清单」：每条写清楚我做成了什么、体现了什么能力，优先用有具体结果或数字的证据；
+3. 写一段我在低谷或怀疑自己时可以读的话，只能基于上面的真实事件，不要空泛鼓励；
+4. 指出这段时间我最常做成的一类事，以及我可能低估了自己的地方。
+输出格式：第一行写标题（例如「2026年11月月度提炼」），之后按上面 4 部分分段，直接可以存档。`;
+  }
+  return text;
+}
+
+function renderSuccessLog() {
+  const days = document.getElementById('sv-days');
+  const list = svFilteredLog();
+  const total = list.reduce((n, e) => n + e.items.length, 0);
+  document.getElementById('sv-sum').textContent = list.length ? `共 ${list.length} 天 · ${total} 条` : '';
+  days.innerHTML = '';
+  if(!list.length) {
+    days.innerHTML = '<div class="sv-empty">这个时间范围内还没有成功日记。<br>在「今日」页顶部的「成功日记」写下第一条，这里会自动出现。</div>';
+    return;
+  }
+  const groups = new Map();
+  list.forEach(e => { const m = e.date.slice(0, 7); if(!groups.has(m)) groups.set(m, []); groups.get(m).push(e); });
+  groups.forEach((entries, m) => {
+    const n = entries.reduce((c, e) => c + e.items.length, 0);
+    const head = document.createElement('div');
+    head.className = 'sv-month';
+    head.innerHTML = `<span>${svMonthLabel(m)} · ${entries.length}天 ${n}条</span>`;
+    const btn = document.createElement('span');
+    btn.className = 'sv-month-act';
+    btn.textContent = '复制这个月';
+    btn.addEventListener('click', () => {
+      copyText(svBuildCopyText(entries, 'month', svMonthLabel(m)));
+      showToast(`已复制${svMonthLabel(m)}的成功日记，粘贴给 AI 即可`);
+    });
+    head.appendChild(btn);
+    days.appendChild(head);
+    entries.forEach(e => {
+      const card = document.createElement('div');
+      card.className = 'sv-day';
+      card.innerHTML = `<div class="sv-day-date">${svDayLabel(e.date)}</div>` +
+        e.items.map(t => `<div class="sv-day-item">· ${escHtml(t)}</div>`).join('');
+      days.appendChild(card);
+    });
+  });
+}
+
+function renderSuccessVault() {
+  const box = document.getElementById('sv-cards');
+  box.innerHTML = '';
+  const items = svLoad();
+  if(!items.length) {
+    box.innerHTML = '<div class="sv-empty">还没有存入精华。<br>把「全部记录」复制给 AI 整理后，把 AI 返回的结果粘贴到上面存进来。</div>';
+    return;
+  }
+  const groups = new Map();
+  items.slice().sort((a, b) => String(b.month).localeCompare(String(a.month)) || ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || ((b.at || 0) - (a.at || 0)))
+    .forEach(i => { if(!groups.has(i.month)) groups.set(i.month, []); groups.get(i.month).push(i); });
+  groups.forEach((arr, m) => {
+    const head = document.createElement('div');
+    head.className = 'sv-month';
+    head.innerHTML = `<span>${svMonthLabel(m)} · ${arr.length}张</span>`;
+    box.appendChild(head);
+    arr.forEach(it => box.appendChild(svBuildCard(it)));
+  });
+}
+
+function svBuildCard(it) {
+  const card = document.createElement('div');
+  card.className = 'sv-card' + (it.pinned ? ' pinned' : '');
+  if(_svEditId === it.id) {
+    card.innerHTML = `
+      <div class="sv-row">
+        <input type="month" class="sv-field sv-e-month" style="flex:0 0 140px" value="${escHtml(it.month)}">
+        <input type="text" class="sv-field sv-e-title" style="flex:1" value="${escHtml(it.title || '')}" placeholder="标题">
+      </div>
+      <textarea class="sv-field no-auto sv-e-text" style="height:240px"></textarea>
+      <div class="sv-row" style="margin-bottom:0">
+        <div class="sv-btn sv-e-cancel">取消</div>
+        <div class="sv-btn primary grow sv-e-save">保存修改</div>
+      </div>`;
+    card.querySelector('.sv-e-text').value = it.text || '';
+    card.querySelector('.sv-e-cancel').addEventListener('click', () => { _svEditId = null; renderSuccessVault(); });
+    card.querySelector('.sv-e-save').addEventListener('click', () => {
+      const text = card.querySelector('.sv-e-text').value.trim();
+      if(!text) { showToast('内容不能为空'); return; }
+      const arr = svLoad();
+      const t = arr.find(x => x.id === it.id);
+      if(t) {
+        t.text = text;
+        t.month = card.querySelector('.sv-e-month').value || t.month;
+        t.title = card.querySelector('.sv-e-title').value.trim() || (svMonthLabel(t.month) + '提炼');
+        t.at = Date.now();
+        svSave(arr);
+      }
+      _svEditId = null;
+      renderSuccessVault();
+      showToast('已保存');
+    });
+    return card;
+  }
+  card.innerHTML = `
+    <div class="sv-card-title">${escHtml(it.title || '')}${it.pinned ? '<span class="sv-pin-tag">置顶</span>' : ''}</div>
+    <div class="sv-body">${svFmt(it.text || '')}</div>
+    <div class="sv-acts"><span class="a-pin">${it.pinned ? '取消置顶' : '置顶'}</span><span class="a-edit">编辑</span><span class="a-copy">复制</span><span class="a-del del">删除</span></div>`;
+  card.querySelector('.a-pin').addEventListener('click', () => {
+    const arr = svLoad(); const t = arr.find(x => x.id === it.id);
+    if(t) { t.pinned = !t.pinned; t.at = Date.now(); svSave(arr); }
+    renderSuccessVault();
+  });
+  card.querySelector('.a-edit').addEventListener('click', () => { _svEditId = it.id; renderSuccessVault(); });
+  card.querySelector('.a-copy').addEventListener('click', () => { copyText((it.title ? it.title + '\n\n' : '') + (it.text || '')); showToast('已复制'); });
+  card.querySelector('.a-del').addEventListener('click', () => {
+    if(!confirm('确认删除这张精华？删除后无法恢复。')) return;
+    const arr = svLoad().filter(x => x.id !== it.id);
+    const del = svDeleted(); del[it.id] = Date.now();
+    localStorage.setItem('success_vault_deleted', JSON.stringify(del));
+    svSave(arr);
+    renderSuccessVault();
+    renderSuccessSub();
+    showToast('已删除');
+  });
+  return card;
+}
+
+function renderSuccessSub() {
+  const n = svLoad().length, days = svCollectLog().length;
+  document.getElementById('sv-sub').textContent = `精华 ${n} 张 · 已记成功日记 ${days} 天`;
+}
+
+function svSwitchTab(tab) {
+  _svTab = tab;
+  document.querySelectorAll('.sv-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.getElementById('sv-vault').style.display = tab === 'vault' ? 'block' : 'none';
+  document.getElementById('sv-log').style.display = tab === 'log' ? 'block' : 'none';
+}
+
+function renderSuccessPage() {
+  renderSuccessSub();
+  renderSuccessVault();
+  renderSuccessLog();
+}
+
+document.querySelectorAll('.sv-tab').forEach(t => t.addEventListener('click', () => svSwitchTab(t.dataset.tab)));
+document.querySelectorAll('#sv-chips .sv-chip').forEach(c => c.addEventListener('click', () => {
+  _svRange = c.dataset.r;
+  document.querySelectorAll('#sv-chips .sv-chip').forEach(x => x.classList.toggle('active', x === c));
+  document.getElementById('sv-custom').style.display = _svRange === 'custom' ? 'flex' : 'none';
+  renderSuccessLog();
+}));
+['sv-from', 'sv-to'].forEach(id => document.getElementById(id).addEventListener('change', renderSuccessLog));
+document.getElementById('sv-month').value = todayKey.slice(0, 7);
+
+document.getElementById('sv-copy-btn').addEventListener('click', () => {
+  const list = svFilteredLog();
+  if(!list.length) { showToast('这个范围内没有成功日记'); return; }
+  const label = { '7': '近7天', '30': '近30天', '90': '近90天', 'all': '全部时间', 'custom': '自选时间段' }[_svRange];
+  copyText(svBuildCopyText(list, _svRange === '7' ? 'week' : 'month', label));
+  showToast(`已复制 ${list.length} 天的成功日记，粘贴给 AI 即可`);
+});
+
+document.getElementById('sv-paste-btn').addEventListener('click', () => {
+  const ta = document.getElementById('sv-paste');
+  if(navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(t => {
+      if(!t) { showToast('剪贴板是空的'); return; }
+      ta.value = t;
+    }).catch(() => showToast('无法读取剪贴板，请长按输入框选择粘贴'));
+  } else {
+    showToast('请长按输入框选择粘贴');
+  }
+});
+
+document.getElementById('sv-save-btn').addEventListener('click', () => {
+  const ta = document.getElementById('sv-paste');
+  const text = ta.value.trim();
+  if(!text) { showToast('先粘贴要存入的内容'); return; }
+  const month = document.getElementById('sv-month').value || todayKey.slice(0, 7);
+  const title = document.getElementById('sv-title').value.trim() || (svMonthLabel(month) + '提炼');
+  const arr = svLoad();
+  arr.push({ id: svNewId(), month, title, text, pinned: false, at: Date.now() });
+  svSave(arr);
+  ta.value = '';
+  document.getElementById('sv-title').value = '';
+  renderSuccessVault();
+  renderSuccessSub();
+  showToast('已存入精华');
+});
+
+renderSuccessSub();
+renderSuccessVault();
 
 gistInitUI();
 </script>
